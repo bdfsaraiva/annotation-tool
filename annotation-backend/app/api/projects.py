@@ -13,7 +13,9 @@ from ..schemas import (
     MessageList,
     ChatRoom as ChatRoomSchema,
     ChatMessage as ChatMessageSchema,
-    Annotation as AnnotationSchema
+    Annotation as AnnotationSchema,
+    ChatRoomCompletion as ChatRoomCompletionSchema,
+    ChatRoomCompletionUpdate as ChatRoomCompletionUpdateSchema
 )
 from ..auth import get_current_user, get_current_admin_user
 from ..dependencies import verify_project_access
@@ -389,3 +391,69 @@ def get_chat_room_annotations(
         result.append(annotation_dict)
 
     return result 
+
+@router.get(
+    "/{project_id}/chat-rooms/{room_id}/completion",
+    response_model=ChatRoomCompletionSchema,
+    tags=["chat rooms"]
+)
+def get_chat_room_completion(
+    project_id: int,
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(verify_project_access)
+):
+    chat_room = db.query(ChatRoom).filter(
+        ChatRoom.id == room_id,
+        ChatRoom.project_id == project_id
+    ).first()
+    if not chat_room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat room not found in this project"
+        )
+
+    completion = crud.get_chat_room_completion(db, room_id, current_user.id)
+    if completion:
+        return completion
+
+    return ChatRoomCompletionSchema(
+        chat_room_id=room_id,
+        annotator_id=current_user.id,
+        project_id=project_id,
+        is_completed=False,
+        updated_at=None
+    )
+
+@router.put(
+    "/{project_id}/chat-rooms/{room_id}/completion",
+    response_model=ChatRoomCompletionSchema,
+    tags=["chat rooms"]
+)
+def update_chat_room_completion(
+    project_id: int,
+    room_id: int,
+    payload: ChatRoomCompletionUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(verify_project_access)
+):
+    chat_room = db.query(ChatRoom).filter(
+        ChatRoom.id == room_id,
+        ChatRoom.project_id == project_id
+    ).first()
+    if not chat_room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat room not found in this project"
+        )
+
+    completion = crud.upsert_chat_room_completion(
+        db=db,
+        chat_room_id=room_id,
+        project_id=project_id,
+        annotator_id=current_user.id,
+        is_completed=payload.is_completed
+    )
+    return completion

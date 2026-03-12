@@ -18,6 +18,7 @@ class User(Base):
     project_assignments = relationship("ProjectAssignment", back_populates="user", cascade="all, delete-orphan")
     annotations = relationship("Annotation", back_populates="annotator", cascade="all, delete-orphan")
     adjacency_pairs = relationship("AdjacencyPair", back_populates="annotator", cascade="all, delete-orphan")
+    chat_room_completions = relationship("ChatRoomCompletion", back_populates="annotator", cascade="all, delete-orphan")
 
 class Project(Base):
     __tablename__ = "projects"
@@ -148,4 +149,23 @@ class AdjacencyPair(Base):
         Index('ix_adjacency_pairs_to', 'to_message_id'),
         Index('ix_adjacency_pairs_project', 'project_id'),
         UniqueConstraint('from_message_id', 'to_message_id', 'annotator_id', name='uix_adjacency_pair'),
+    )
+
+class ChatRoomCompletion(Base):
+    __tablename__ = "chat_room_completions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chat_room_id: Mapped[int] = mapped_column(ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False)
+    annotator_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    annotator = relationship("User", back_populates="chat_room_completions")
+
+    __table_args__ = (
+        UniqueConstraint('chat_room_id', 'annotator_id', name='uix_chat_room_completion'),
+        Index('ix_chat_room_completions_chat_room', 'chat_room_id'),
+        Index('ix_chat_room_completions_project', 'project_id'),
     )

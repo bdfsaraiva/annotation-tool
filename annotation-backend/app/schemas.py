@@ -10,6 +10,11 @@ class UserCreate(UserBase):
     password: str
     is_admin: bool = False
 
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    is_admin: Optional[bool] = None
+
 class User(UserBase):
     id: int
     is_admin: bool
@@ -129,6 +134,21 @@ class AdjacencyPair(AdjacencyPairBase):
     class Config:
         from_attributes = True
 
+# Chat Room Completion Schemas
+class ChatRoomCompletionUpdate(BaseModel):
+    is_completed: bool
+
+class ChatRoomCompletion(BaseModel):
+    chat_room_id: int
+    annotator_id: int
+    project_id: int
+    is_completed: bool
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # Authentication Schemas
 class Token(BaseModel):
     access_token: str
@@ -247,6 +267,19 @@ class AnnotatorInfo(BaseModel):
     """Information about an annotator."""
     id: int
     email: str
+
+class ChatRoomCompletionSummary(BaseModel):
+    chat_room_id: int
+    total_assigned: int
+    completed_count: int
+    completed_annotators: List[AnnotatorInfo]
+
+class AdjacencyPairsStatus(BaseModel):
+    chat_room_id: int
+    status: str
+    total_assigned: int
+    completed_count: int
+    has_relations: bool
 
 class ChatRoomIAA(BaseModel):
     """Holds the complete IAA analysis for a single chat room."""

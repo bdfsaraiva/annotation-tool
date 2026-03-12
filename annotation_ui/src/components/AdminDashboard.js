@@ -26,6 +26,8 @@ const AdminDashboard = () => {
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, user: null });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [editUser, setEditUser] = useState({ id: null, email: '', password: '', is_admin: false });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -91,6 +93,31 @@ const AdminDashboard = () => {
 
   const handleDeleteUser = async (user) => {
     setDeleteConfirmation({ show: true, user });
+  };
+
+  const handleEditUser = (user) => {
+    setEditUser({ id: user.id, email: user.email, password: '', is_admin: user.is_admin });
+    setShowEditUserModal(true);
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        email: editUser.email,
+        is_admin: editUser.is_admin
+      };
+      if (editUser.password) {
+        payload.password = editUser.password;
+      }
+      await usersApi.updateUser(editUser.id, payload);
+      setShowEditUserModal(false);
+      setEditUser({ id: null, email: '', password: '', is_admin: false });
+      fetchData();
+    } catch (error) {
+      console.error("Failed to update user:", error);
+      setError(error.response?.data?.detail || 'Failed to update user');
+    }
   };
 
   const confirmDeleteUser = async () => {
@@ -221,11 +248,11 @@ const AdminDashboard = () => {
           )}
         </div>
       ) : (
-        <div className="users-view">
+        <div>
           <div className="view-header">
             <h2>Users ({users.length})</h2>
             <button 
-              className="primary-button"
+              className="secondary"
               onClick={() => setShowCreateUserModal(true)}
             >
               ＋ Create User
@@ -253,6 +280,12 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td>
+                      <button 
+                        onClick={() => handleEditUser(user)} 
+                        className="secondary-button"
+                      >
+                        Edit
+                      </button>
                       <button 
                         onClick={() => handleDeleteUser(user)} 
                         className="delete-button"
@@ -314,6 +347,56 @@ const AdminDashboard = () => {
                   Cancel
                 </button>
                 <button type="submit" className="primary-button">Create User</button>
+              </div>
+            </form>
+          </Modal>
+
+          <Modal
+            isOpen={showEditUserModal}
+            onClose={() => setShowEditUserModal(false)}
+            title="Edit User"
+            size="medium"
+          >
+            <form onSubmit={handleUpdateUser}>
+              <div className="form-field">
+                <label htmlFor="edit-email">Email</label>
+                <input
+                  id="edit-email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={editUser.email}
+                  onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor="edit-password">New Password (optional)</label>
+                <input
+                  id="edit-password"
+                  type="password"
+                  placeholder="Leave blank to keep current password"
+                  value={editUser.password}
+                  onChange={(e) => setEditUser({ ...editUser, password: e.target.value })}
+                />
+              </div>
+              <div className="form-field checkbox-field">
+                <input
+                  id="edit-is-admin"
+                  type="checkbox"
+                  checked={editUser.is_admin}
+                  onChange={(e) => setEditUser({ ...editUser, is_admin: e.target.checked })}
+                />
+                <label htmlFor="edit-is-admin">Admin User</label>
+              </div>
+              <div className="modal-actions">
+                <button 
+                  type="button" 
+                  className="secondary-button"
+                  onClick={() => setShowEditUserModal(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="primary-button">Save</button>
               </div>
             </form>
           </Modal>

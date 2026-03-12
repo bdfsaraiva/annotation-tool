@@ -45,6 +45,22 @@
     margin: 0;
 }
 
+.secondary {
+  background-color: var(--background-color-tertiary);
+  color: var(--text-color-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.secondary:hover {
+  background-color: var(--background-color-primary);
+}
+
 /* Generic Form Styles for this Component */
 .admin-dashboard .form-container {
     background-color: var(--background-color-secondary);
@@ -199,6 +215,16 @@
 
 .delete-button:hover {
   background-color: #c82333;
+}
+
+.users-table-container .secondary-button,
+.users-table-container .delete-button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.users-table-container .secondary-button {
+  margin-right: 0.5rem;
 }
 
 .admin-dashboard .form-container button {

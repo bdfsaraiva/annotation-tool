@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it."
+title: "Annotation Tool for Chat Disentanglement and Adjacency Pairs"
+authors:
+  - name: "Bruno Ferreira-Saraiva"
+    email: "bruno.saraiva@ulusofona.pt"
+  - name: "Zuil Pirola"
+  - name: "Fabio Lopes"
+
+license: "MIT"
+version: "0.2.0"
+date-released: "2026-03-12"

@@ -33,6 +33,17 @@ def delete_user(db: Session, user: models.User) -> None:
     db.delete(user)
     db.commit()
 
+def update_user(db: Session, user: models.User, updates: schemas.UserUpdate, hashed_password: Optional[str] = None) -> models.User:
+    if updates.email is not None:
+        user.email = updates.email
+    if updates.is_admin is not None:
+        user.is_admin = updates.is_admin
+    if hashed_password is not None:
+        user.hashed_password = hashed_password
+    db.commit()
+    db.refresh(user)
+    return user
+
 # Project CRUD operations
 def get_project(db: Session, project_id: int) -> Optional[models.Project]:
     return db.query(models.Project).filter(models.Project.id == project_id).first()
@@ -221,6 +232,115 @@ def get_all_adjacency_pairs_for_chat_room_admin(
         .join(models.User, models.AdjacencyPair.annotator_id == models.User.id)
         .filter(models.ChatMessage.chat_room_id == chat_room_id)
         .all()
+    )
+
+# Chat Room Completion CRUD operations
+def get_chat_room_completion(
+    db: Session, chat_room_id: int, annotator_id: int
+) -> Optional[models.ChatRoomCompletion]:
+    return db.query(models.ChatRoomCompletion).filter(
+        models.ChatRoomCompletion.chat_room_id == chat_room_id,
+        models.ChatRoomCompletion.annotator_id == annotator_id
+    ).first()
+
+def upsert_chat_room_completion(
+    db: Session,
+    chat_room_id: int,
+    project_id: int,
+    annotator_id: int,
+    is_completed: bool
+) -> models.ChatRoomCompletion:
+    completion = get_chat_room_completion(db, chat_room_id, annotator_id)
+    if completion:
+        completion.is_completed = is_completed
+        completion.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(completion)
+        return completion
+
+    completion = models.ChatRoomCompletion(
+        chat_room_id=chat_room_id,
+        annotator_id=annotator_id,
+        project_id=project_id,
+        is_completed=is_completed,
+        created_at=datetime.utcnow()
+    )
+    db.add(completion)
+    db.commit()
+    db.refresh(completion)
+    return completion
+
+def get_chat_room_completion_summary(
+    db: Session, chat_room_id: int
+) -> schemas.ChatRoomCompletionSummary:
+    chat_room = get_chat_room(db, chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=404, detail="Chat room not found")
+
+    assigned_users = (
+        db.query(models.User)
+        .join(models.ProjectAssignment, models.User.id == models.ProjectAssignment.user_id)
+        .filter(models.ProjectAssignment.project_id == chat_room.project_id)
+        .all()
+    )
+    total_assigned = len(assigned_users)
+
+    completed_users = (
+        db.query(models.User)
+        .join(models.ProjectAssignment, models.User.id == models.ProjectAssignment.user_id)
+        .join(
+            models.ChatRoomCompletion,
+            (models.ChatRoomCompletion.annotator_id == models.User.id) &
+            (models.ChatRoomCompletion.chat_room_id == chat_room_id)
+        )
+        .filter(
+            models.ProjectAssignment.project_id == chat_room.project_id,
+            models.ChatRoomCompletion.is_completed == True
+        )
+        .all()
+    )
+
+    completed_annotators = [
+        schemas.AnnotatorInfo(id=user.id, email=user.email)
+        for user in completed_users
+    ]
+
+    return schemas.ChatRoomCompletionSummary(
+        chat_room_id=chat_room_id,
+        total_assigned=total_assigned,
+        completed_count=len(completed_annotators),
+        completed_annotators=completed_annotators
+    )
+
+def get_adjacency_pairs_status(
+    db: Session, chat_room_id: int
+) -> schemas.AdjacencyPairsStatus:
+    chat_room = get_chat_room(db, chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=404, detail="Chat room not found")
+
+    summary = get_chat_room_completion_summary(db, chat_room_id)
+    has_relations = (
+        db.query(models.AdjacencyPair.id)
+        .join(models.ChatMessage, models.AdjacencyPair.from_message_id == models.ChatMessage.id)
+        .filter(models.ChatMessage.chat_room_id == chat_room_id)
+        .first()
+        is not None
+    )
+
+    if summary.total_assigned > 0 and summary.completed_count == summary.total_assigned:
+        status = "Completed"
+    elif has_relations:
+        status = "Started"
+    else:
+        status = "NotStarted"
+
+    return schemas.AdjacencyPairsStatus(
+        chat_room_id=chat_room_id,
+        status=status,
+        total_assigned=summary.total_assigned,
+        completed_count=summary.completed_count,
+        has_relations=has_relations
     )
 
 # ProjectAssignment CRUD operations

@@ -30,7 +30,7 @@
 .app-main {
   flex-grow: 1;
   overflow-y: auto; /* Allows main content to scroll */
-  padding: 0;
+  padding: 1rem;
 }
 
 .header-controls {

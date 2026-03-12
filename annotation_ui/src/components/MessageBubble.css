@@ -13,6 +13,10 @@
   margin-right: 1rem;
 }
 
+.message-bubble:not(.relation-mode) {
+  margin-right: 0;
+}
+
 .message-bubble.expanded {
   box-shadow: var(--card-shadow);
 }
@@ -108,13 +112,19 @@
   font-weight: 700; /* Bolder font weight */
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* Text shadow for better readability */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add subtle shadow for depth */
-  margin-left: auto;
   border: 1px solid rgba(255, 255, 255, 0.3); /* Subtle border for better definition */
   text-transform: uppercase; /* Make text more prominent */
   letter-spacing: 0.025em; /* Slight letter spacing for readability */
   min-width: 2rem; /* Minimum width for consistency */
   text-align: center;
   color: white; /* Always white text for readability on colored backgrounds */
+}
+
+.message-header-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* Enhanced User ID with click functionality */
@@ -211,6 +221,12 @@
   box-shadow: var(--card-shadow);
   position: relative;
   overflow: hidden;
+}
+
+.add-thread-button.header {
+  width: auto;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.7rem;
 }
 
 .add-thread-button::before {

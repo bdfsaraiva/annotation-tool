@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy.orm import Session, aliased
+from typing import List, Optional
 import pandas as pd
 import io
 import os
@@ -11,6 +11,9 @@ from .. import crud, models, schemas
 from ..dependencies import get_db
 from ..auth import get_current_admin_user, get_password_hash
 from ..utils.csv_utils import import_chat_messages, validate_csv_format, import_annotations_from_csv, validate_annotations_csv_format
+from fastapi.responses import Response, JSONResponse
+import io
+import zipfile
 
 router = APIRouter()
 
@@ -41,6 +44,36 @@ async def create_user(
     hashed_password = get_password_hash(user_data.password)
     new_user = crud.create_user(db, user_data, hashed_password)
     return new_user
+
+@router.put("/users/{user_id}", response_model=schemas.User)
+async def update_user(
+    user_id: int,
+    updates: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+):
+    """Update a user (admin only)"""
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    if updates.email:
+        existing_user = crud.get_user_by_email(db, updates.email)
+        if existing_user and existing_user.id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+    hashed_password = None
+    if updates.password:
+        hashed_password = get_password_hash(updates.password)
+
+    updated_user = crud.update_user(db, user, updates, hashed_password)
+    return updated_user
 
 @router.get("/projects", response_model=List[schemas.Project])
 async def list_all_projects(
@@ -259,6 +292,30 @@ async def delete_chat_room(
             detail="Chat room not found"
         )
     crud.delete_chat_room(db, chat_room)
+
+@router.get(
+    "/chat-rooms/{chat_room_id}/completion-summary",
+    response_model=schemas.ChatRoomCompletionSummary
+)
+async def get_chat_room_completion_summary(
+    chat_room_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+):
+    """Get manual completion summary for a chat room (admin only)."""
+    return crud.get_chat_room_completion_summary(db, chat_room_id)
+
+@router.get(
+    "/chat-rooms/{chat_room_id}/adjacency-status",
+    response_model=schemas.AdjacencyPairsStatus
+)
+async def get_adjacency_pairs_status(
+    chat_room_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+):
+    """Get adjacency pairs status for a chat room (admin only)."""
+    return crud.get_adjacency_pairs_status(db, chat_room_id)
 
 # --- Remove or comment out old endpoints --- 
 
@@ -571,8 +628,6 @@ async def export_chat_room_data(
     Raises:
         HTTPException: 404 if chat room not found
     """
-    from fastapi.responses import JSONResponse
-    
     # Get the export data
     export_data = crud.export_chat_room_data(db=db, chat_room_id=chat_room_id)
     
@@ -597,4 +652,103 @@ async def export_chat_room_data(
         headers={
             "Content-Disposition": f"attachment; filename={filename}"
         }
+    )
+
+@router.get("/chat-rooms/{chat_room_id}/export-adjacency-pairs")
+async def export_adjacency_pairs(
+    chat_room_id: int,
+    annotator_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+):
+    """
+    Export adjacency pairs as a plain text file with one link per line.
+    Format: turnA,turnB,relation_type
+    """
+    chat_room = crud.get_chat_room(db, chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
+
+    project = crud.get_project(db, chat_room.project_id)
+    if not project or project.annotation_type != "adjacency_pairs":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This chat room does not belong to an adjacency pairs project"
+        )
+
+    annotator_email = None
+    if annotator_id is not None:
+        user = crud.get_user(db, annotator_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Annotator not found")
+        annotator_email = user.email
+
+    FromMessage = aliased(models.ChatMessage)
+    ToMessage = aliased(models.ChatMessage)
+
+    safe_room_name = chat_room.name.replace(" ", "-")
+    if annotator_id is not None:
+        query = (
+            db.query(models.AdjacencyPair, FromMessage.turn_id, ToMessage.turn_id)
+            .join(FromMessage, models.AdjacencyPair.from_message_id == FromMessage.id)
+            .join(ToMessage, models.AdjacencyPair.to_message_id == ToMessage.id)
+            .filter(FromMessage.chat_room_id == chat_room_id)
+            .filter(ToMessage.chat_room_id == chat_room_id)
+            .filter(models.AdjacencyPair.annotator_id == annotator_id)
+        )
+
+        pairs = query.order_by(models.AdjacencyPair.id).all()
+        lines = [f"{from_turn},{to_turn},{pair.relation_type}" for pair, from_turn, to_turn in pairs]
+        content = "\n".join(lines)
+
+        annotator_local = (annotator_email or f"user_{annotator_id}").split("@")[0]
+        safe_annotator = annotator_local.replace(" ", "-")
+        filename = f"{safe_room_name}-{safe_annotator}.txt"
+        return Response(
+            content=content,
+            media_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    # Export all annotators as a zip with one txt per annotator
+    User = aliased(models.User)
+    assigned_users = (
+        db.query(models.User)
+        .join(models.ProjectAssignment, models.User.id == models.ProjectAssignment.user_id)
+        .filter(models.ProjectAssignment.project_id == chat_room.project_id)
+        .all()
+    )
+    if not assigned_users:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No annotators assigned to this project")
+
+    query = (
+        db.query(models.AdjacencyPair, FromMessage.turn_id, ToMessage.turn_id)
+        .join(FromMessage, models.AdjacencyPair.from_message_id == FromMessage.id)
+        .join(ToMessage, models.AdjacencyPair.to_message_id == ToMessage.id)
+        .filter(FromMessage.chat_room_id == chat_room_id)
+        .filter(ToMessage.chat_room_id == chat_room_id)
+    )
+
+    pairs = query.order_by(models.AdjacencyPair.annotator_id, models.AdjacencyPair.id).all()
+
+    grouped_by_user = {}
+    for pair, from_turn, to_turn in pairs:
+        if pair.annotator_id not in grouped_by_user:
+            grouped_by_user[pair.annotator_id] = []
+        grouped_by_user[pair.annotator_id].append(f"{from_turn},{to_turn},{pair.relation_type}")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for user in assigned_users:
+            annotator_local = (user.email or f"user_{user.id}").split("@")[0]
+            safe_annotator = annotator_local.replace(" ", "-")
+            fname = f"{safe_room_name}-{safe_annotator}.txt"
+            lines = grouped_by_user.get(user.id, [])
+            zf.writestr(fname, "\n".join(lines))
+
+    zip_name = f"{safe_room_name}-all.zip"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={zip_name}"}
     )

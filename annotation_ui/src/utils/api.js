@@ -205,6 +205,16 @@ export const projects = {
         });
         return response.data;
     },
+    getChatRoomCompletion: async (projectId, roomId) => {
+        const response = await api.get(`/projects/${projectId}/chat-rooms/${roomId}/completion`);
+        return response.data;
+    },
+    updateChatRoomCompletion: async (projectId, roomId, isCompleted) => {
+        const response = await api.put(`/projects/${projectId}/chat-rooms/${roomId}/completion`, {
+            is_completed: isCompleted
+        });
+        return response.data;
+    },
 };
 
 // Users endpoints
@@ -220,6 +230,10 @@ export const users = {
     deleteUser: async (userId) => {
         await api.delete(`/admin/users/${userId}`);
         return true;
+    },
+    updateUser: async (userId, updates) => {
+        const response = await api.put(`/admin/users/${userId}`, updates);
+        return response.data;
     },
 };
 
@@ -314,6 +328,14 @@ export const annotations = {
         const response = await api.get(`/admin/chat-rooms/${chatRoomId}/iaa`);
         return response.data;
     },
+    getChatRoomCompletionSummary: async (chatRoomId) => {
+        const response = await api.get(`/admin/chat-rooms/${chatRoomId}/completion-summary`);
+        return response.data;
+    },
+    getAdjacencyPairsStatus: async (chatRoomId) => {
+        const response = await api.get(`/admin/chat-rooms/${chatRoomId}/adjacency-status`);
+        return response.data;
+    },
     // EXPORT FUNCTIONALITY
     exportChatRoom: async (chatRoomId) => {
         try {
@@ -386,6 +408,56 @@ export const adjacencyPairs = {
     deleteAdjacencyPair: async (projectId, chatRoomId, pairId) => {
         await api.delete(`/projects/${projectId}/chat-rooms/${chatRoomId}/adjacency-pairs/${pairId}`);
         return true;
+    },
+    exportChatRoomPairs: async (chatRoomId, annotatorId = null, filenameOverride = null) => {
+        try {
+            const response = await api.get(`/admin/chat-rooms/${chatRoomId}/export-adjacency-pairs`, {
+                params: annotatorId ? { annotator_id: annotatorId } : {},
+                responseType: 'blob',
+            });
+
+            const blob = new Blob([response.data], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = filenameOverride || `chat_room_${chatRoomId}_adjacency_pairs.txt`;
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            return true;
+        } catch (error) {
+            console.error('Adjacency pairs export error:', error);
+
+            if (!error.response) {
+                throw new Error('Network error or server is not responding. Please check your connection and try again.');
+            }
+
+            if (error.response.status === 403) {
+                throw new Error('You do not have permission to export this chat room.');
+            }
+
+            if (error.response.status === 404) {
+                throw new Error('Chat room or annotator not found.');
+            }
+
+            throw new Error(
+                error.response.data?.message ||
+                error.response.data?.detail ||
+                'Failed to export adjacency pairs. Please try again.'
+            );
+        }
     },
 };
 

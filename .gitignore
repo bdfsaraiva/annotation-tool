@@ -79,9 +79,6 @@ uploads/
 !test_api.sh
 analysis/
 
-# Alembic
-alembic/versions/*.py
-!alembic/versions/__init__.py
 
 # Node/React (for annotation_ui)
 node_modules/

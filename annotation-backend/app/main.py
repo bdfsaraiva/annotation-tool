@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
+
 def create_first_admin():
     """Create the first admin user if it doesn't exist."""
     db = SessionLocal()
@@ -44,9 +45,11 @@ def create_first_admin():
     finally:
         db.close()
 
+
 # Create tables
 def init_db():
     Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(
     title="Annotation Backend",
@@ -71,21 +74,24 @@ app.include_router(message_annotation_router, tags=["annotations"])
 app.include_router(project_annotation_router, tags=["annotations"])
 app.include_router(adjacency_pairs_router)
 
+
 @app.on_event("startup")
 def startup_event():
     """Initialize database and create first admin on startup."""
     # init_db()  # Removed: Schema managed by Alembic migrations
     create_first_admin()
 
+
 @app.get("/")
 def root():
     """Root endpoint that returns API information."""
     return {
-        "name": "Annotation Backend",
+        "name": "Annotation Tool Backend",
         "version": "1.0.0",
         "docs_url": "/docs",
-        "redoc_url": "/redoc"
+        # "redoc_url": "/redoc"
     }
 
+
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

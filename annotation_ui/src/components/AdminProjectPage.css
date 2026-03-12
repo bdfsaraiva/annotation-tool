@@ -56,6 +56,123 @@
     margin-bottom: 2.5rem;
 }
 
+.project-description-edit textarea {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-color-secondary);
+    color: var(--text-color-primary);
+    resize: vertical;
+}
+
+.description-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.icon-button {
+    border: none;
+    background: var(--background-color-tertiary);
+    color: var(--text-color-primary);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-button:hover {
+    background: var(--background-color-secondary);
+}
+
+.relation-types-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.relation-input-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.relation-input-row input {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-color-tertiary);
+    color: var(--text-color-primary);
+}
+
+.relation-types-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.relation-types-list {
+    display: flex;
+    gap: 0.5rem;
+    flex-direction: column;
+}
+
+.relation-type-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-color-tertiary);
+    color: var(--text-color-primary);
+    cursor: grab;
+}
+
+.relation-type-tag:active {
+    cursor: grabbing;
+}
+
+.tag-handle {
+    font-size: 0.9rem;
+    color: var(--text-color-secondary);
+}
+
+.tag-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.tag-remove {
+    border: none;
+    background: transparent;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.tag-remove:hover {
+    color: var(--error-color);
+}
+
+.danger-zone-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.danger-zone-actions {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 220px;
+}
+
 .management-section {
     background-color: var(--background-color-secondary);
     border: 1px solid var(--border-color);
@@ -133,6 +250,16 @@
 .action-button.export-button {
     background-color: #ffc107;
     color: #212529;
+}
+
+.action-button.secondary {
+    background-color: var(--background-color-tertiary);
+    color: var(--text-color-primary);
+    border: 1px solid var(--border-color);
+}
+
+.action-button.secondary:hover {
+    background-color: var(--background-color-secondary);
 }
 
 .action-button:disabled {
@@ -739,4 +866,23 @@
     .legend-text {
         font-size: 0.8rem;
     }
+}
+
+.export-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.export-modal-content label {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.export-modal-content select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--background-color-secondary);
+  color: var(--text-color-primary);
 }

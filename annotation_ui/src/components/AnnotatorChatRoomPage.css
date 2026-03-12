@@ -31,6 +31,25 @@
   margin-left: auto; /* push controls to the far right, increasing space from title */
 }
 
+.completion-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.5rem 0.5rem;
+  border-radius: var(--border-radius);
+  background-color: var(--background-color-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-color-primary);
+}
+
+.completion-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary-color);
+}
+
 .layout-toggle-btn {
   /* More prominent toggle button styling */
   background-color: var(--primary-color); /* make it stand out */
@@ -118,10 +137,10 @@
 /* Chat Room Content - Updated Grid Layout */
 .chat-room-content {
   display: grid;
-  grid-template-columns: 1fr 450px; /* Increased sidebar width from 350px to 450px */
+  grid-template-columns: minmax(0, 1.35fr) 360px;
   gap: 2rem;
   padding: 1.5rem; /* Reduced from 2rem to minimize spacing */
-  max-width: 1600px; /* Increased max width to accommodate larger sidebar */
+  max-width: 1800px;
   margin: 0 auto;
 }
 
@@ -398,8 +417,17 @@
 .messages-content {
   padding: 1.5rem;
   min-height: calc(100vh - 300px);
-  overflow-y: auto;
-  scroll-behavior: smooth;
+  overflow: visible;
+}
+
+.chat-room-warning {
+  padding: 0.5rem 1rem;
+}
+
+.warning-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .messages-content.adjacency-layout {
@@ -442,6 +470,14 @@
 
 .messages-content.relation-hover-dimmed .relation-line.selected,
 .messages-content.relation-hover-dimmed .relation-line:hover {
+  opacity: 1;
+}
+
+.messages-content.relation-focus-dimmed .relation-line {
+  opacity: 0.2;
+}
+
+.messages-content.relation-focus-dimmed .relation-line.focused {
   opacity: 1;
 }
 
@@ -490,6 +526,14 @@
 }
 
 .messages-content.relation-hover-dimmed .message-bubble.relation-linked {
+  opacity: 1;
+}
+
+.messages-content.relation-focus-dimmed .message-bubble {
+  opacity: 0.25;
+}
+
+.messages-content.relation-focus-dimmed .message-bubble.relation-linked {
   opacity: 1;
 }
 

@@ -4,6 +4,7 @@ import { projects as projectsApi, annotations as annotationsApi, adjacencyPairs 
 import MessageBubble from './MessageBubble';
 import SmartThreadCard from './SmartThreadCard';
 import Modal from './Modal';
+import ErrorMessage from './ErrorMessage';
 import './AnnotatorChatRoomPage.css';
 
 const parseApiError = (error) => {
@@ -58,6 +59,8 @@ const AnnotatorChatRoomPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [isCompletionSaving, setIsCompletionSaving] = useState(false);
   
   // New state for enhanced functionality
   const [highlightedUserId, setHighlightedUserId] = useState(null);
@@ -65,7 +68,6 @@ const AnnotatorChatRoomPage = () => {
   const [highlightedThreadId, setHighlightedThreadId] = useState(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
-  const [useConstrainedLayout, setUseConstrainedLayout] = useState(false);
   const [dragSourceMessageId, setDragSourceMessageId] = useState(null);
   const [dragHoverMessageId, setDragHoverMessageId] = useState(null);
   const [pairSourceMessageId, setPairSourceMessageId] = useState(null);
@@ -76,6 +78,7 @@ const AnnotatorChatRoomPage = () => {
   const [messagesScrollHeight, setMessagesScrollHeight] = useState(0);
   const [selectedRelationId, setSelectedRelationId] = useState(null);
   const [hoveredRelationId, setHoveredRelationId] = useState(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState(null);
   const [replyHoverIds, setReplyHoverIds] = useState(null);
   const [contextMenu, setContextMenu] = useState({
     visible: false,
@@ -275,7 +278,8 @@ const AnnotatorChatRoomPage = () => {
       const requests = [
         projectsApi.getChatRoom(projectId, roomId),
         projectsApi.getChatMessages(projectId, roomId, 0, 1000),
-        auth.getCurrentUser()
+        auth.getCurrentUser(),
+        projectsApi.getChatRoomCompletion(projectId, roomId)
       ];
 
       if (projectData.annotation_type === 'adjacency_pairs') {
@@ -284,11 +288,12 @@ const AnnotatorChatRoomPage = () => {
         requests.push(annotationsApi.getChatRoomAnnotations(projectId, roomId));
       }
 
-      const [chatRoomData, messagesData, userData, thirdPayload] = await Promise.all(requests);
+      const [chatRoomData, messagesData, userData, completionData, thirdPayload] = await Promise.all(requests);
       
       setChatRoomName(chatRoomData?.name || '');
       setMessages(messagesData);
       setCurrentUser(userData);
+      setIsCompleted(Boolean(completionData?.is_completed));
 
       if (projectData.annotation_type === 'adjacency_pairs') {
         setAdjacencyPairs(thirdPayload);
@@ -323,7 +328,7 @@ const AnnotatorChatRoomPage = () => {
 
   useEffect(() => {
     requestPositionUpdate();
-  }, [showInstructions, useConstrainedLayout, annotationMode, requestPositionUpdate]);
+  }, [showInstructions, annotationMode, requestPositionUpdate]);
 
   useEffect(() => {
     const handleResize = () => requestPositionUpdate();
@@ -388,7 +393,21 @@ const AnnotatorChatRoomPage = () => {
     setPairSourceMessageId(messageId);
   };
 
-  const handlePairDrop = (targetMessageId) => {\n    if (!dragSourceMessageId || dragSourceMessageId === targetMessageId) {\n      setDragSourceMessageId(null);\n      setDragHoverMessageId(null);\n      return;\n    }\n    if (!isBackwardLinkAllowed(dragSourceMessageId, targetMessageId)) {\n      setError('You can only link a turn to an earlier turn.');\n      setDragSourceMessageId(null);\n      setDragHoverMessageId(null);\n      return;\n    }\n    setPendingPair({ from: dragSourceMessageId, to: targetMessageId });\n    setShowPairModal(true);\n  };
+  const handlePairDrop = (targetMessageId) => {
+    if (!dragSourceMessageId || dragSourceMessageId === targetMessageId) {
+      setDragSourceMessageId(null);
+      setDragHoverMessageId(null);
+      return;
+    }
+    if (!isBackwardLinkAllowed(dragSourceMessageId, targetMessageId)) {
+      setError('You can only link a turn to an earlier turn.');
+      setDragSourceMessageId(null);
+      setDragHoverMessageId(null);
+      return;
+    }
+    setPendingPair({ from: dragSourceMessageId, to: targetMessageId });
+    setShowPairModal(true);
+  };
 
   const handlePairDragOver = (messageId) => {
     setDragHoverMessageId(messageId);
@@ -413,7 +432,12 @@ const AnnotatorChatRoomPage = () => {
     });
   };
 
-  const handleCreateAdjacencyPairDirect = async (relationType, targetMessageId) => {\n    if (!isBackwardLinkAllowed(pairSourceMessageId, targetMessageId)) {\n      setError('You can only link a turn to an earlier turn.');\n      setContextMenu({ visible: false, x: 0, y: 0, targetMessageId: null });\n      return;\n    }
+  const handleCreateAdjacencyPairDirect = async (relationType, targetMessageId) => {
+    if (!isBackwardLinkAllowed(pairSourceMessageId, targetMessageId)) {
+      setError('You can only link a turn to an earlier turn.');
+      setContextMenu({ visible: false, x: 0, y: 0, targetMessageId: null });
+      return;
+    }
     if (!pairSourceMessageId || !targetMessageId || pairSourceMessageId === targetMessageId) return;
     setIsSubmitting(true);
     try {
@@ -432,7 +456,15 @@ const AnnotatorChatRoomPage = () => {
     }
   };
 
-  const handleCreateAdjacencyPair = async (relationType) => {\n    if (pendingPair && !isBackwardLinkAllowed(pendingPair.from, pendingPair.to)) {\n      setError('You can only link a turn to an earlier turn.');\n      setPendingPair(null);\n      setShowPairModal(false);\n      setDragSourceMessageId(null);\n      setDragHoverMessageId(null);\n      return;\n    }
+  const handleCreateAdjacencyPair = async (relationType) => {
+    if (pendingPair && !isBackwardLinkAllowed(pendingPair.from, pendingPair.to)) {
+      setError('You can only link a turn to an earlier turn.');
+      setPendingPair(null);
+      setShowPairModal(false);
+      setDragSourceMessageId(null);
+      setDragHoverMessageId(null);
+      return;
+    }
     if (!pendingPair) return;
     setIsSubmitting(true);
     try {
@@ -451,6 +483,20 @@ const AnnotatorChatRoomPage = () => {
       setShowPairModal(false);
       setDragSourceMessageId(null);
       setDragHoverMessageId(null);
+    }
+  };
+
+  const handleCompletionToggle = async (event) => {
+    const nextValue = event.target.checked;
+    setIsCompletionSaving(true);
+    try {
+      await projectsApi.updateChatRoomCompletion(projectId, roomId, nextValue);
+      setIsCompleted(nextValue);
+    } catch (err) {
+      console.error('Error updating completion status:', err);
+      setError(parseApiError(err));
+    } finally {
+      setIsCompletionSaving(false);
     }
   };
 
@@ -550,7 +596,6 @@ const AnnotatorChatRoomPage = () => {
   };
 
   if (loading) return <div className="loading">Loading chat room...</div>;
-  if (error) return <div className="error">{error}</div>;
 
 
   const adjacencyLines = adjacencyPairs.map((pair) => {
@@ -620,9 +665,25 @@ const AnnotatorChatRoomPage = () => {
   const selectedRelation = adjacencyPairs.find((pair) => pair.id === selectedRelationId) || null;
   const hoveredRelation = adjacencyPairs.find((pair) => pair.id === hoveredRelationId) || null;
   const activeRelation = selectedRelation || hoveredRelation;
-  const activeLinkedIds = activeRelation
-    ? new Set([String(activeRelation.from_message_id), String(activeRelation.to_message_id)])
-    : null;
+  const hoveredRelations = hoveredMessageId
+    ? adjacencyPairs.filter(
+        (pair) =>
+          pair.from_message_id === hoveredMessageId || pair.to_message_id === hoveredMessageId
+      )
+    : [];
+  const hoveredRelationIds = new Set(hoveredRelations.map((pair) => pair.id));
+  const hoveredLinkedIds = hoveredRelations.reduce((acc, pair) => {
+    acc.add(String(pair.from_message_id));
+    acc.add(String(pair.to_message_id));
+    return acc;
+  }, new Set());
+  const shouldFocusRelations = hoveredMessageId && hoveredRelationIds.size > 0;
+
+  const activeLinkedIds = shouldFocusRelations
+    ? hoveredLinkedIds
+    : activeRelation
+      ? new Set([String(activeRelation.from_message_id), String(activeRelation.to_message_id)])
+      : null;
 
   return (
     <div className="annotator-chat-room">
@@ -632,13 +693,17 @@ const AnnotatorChatRoomPage = () => {
         </button>
         <h2>{annotationMode === 'adjacency_pairs' ? (chatRoomName || 'Annotation') : 'Chat Disentanglement Annotation'}</h2>
         <div className="header-controls">
-          <button 
-            className="layout-toggle-btn"
-            onClick={() => setUseConstrainedLayout(!useConstrainedLayout)}
-            title={useConstrainedLayout ? "Switch to unlimited scroll" : "Switch to constrained layout"}
-          >
-            {useConstrainedLayout ? "📜" : "📋"}
-          </button>
+          {annotationMode === 'adjacency_pairs' && (
+            <label className="completion-toggle">
+              <input
+                type="checkbox"
+                checked={isCompleted}
+                onChange={handleCompletionToggle}
+                disabled={isCompletionSaving}
+              />
+              Finished
+            </label>
+          )}
           <button 
             className="layout-toggle-btn"
             onClick={() => setShowInstructions(!showInstructions)}
@@ -664,6 +729,22 @@ const AnnotatorChatRoomPage = () => {
           </div>
         </div>
       </div>
+      {error && (
+        <Modal
+          isOpen={true}
+          onClose={() => setError(null)}
+          title=""
+          size="small"
+          showCloseButton={false}
+        >
+          <div className="warning-modal">
+            <ErrorMessage type="warning" title="Warning" message={error} />
+            <button className="action-button" onClick={() => setError(null)}>
+              OK
+            </button>
+          </div>
+        </Modal>
+      )}
       {showInstructions && (
         <div className="instruction-panel">
           <div className="manual-content">
@@ -801,9 +882,9 @@ const AnnotatorChatRoomPage = () => {
         </div>
        )}
       <div className={`chat-room-content ${annotationMode === 'adjacency_pairs' ? 'adjacency-only' : ''}`}>
-        <div className={`messages-container ${useConstrainedLayout ? 'constrained' : ''} ${annotationMode === 'adjacency_pairs' ? 'adjacency-only' : ''}`}>
+        <div className={`messages-container ${annotationMode === 'adjacency_pairs' ? 'adjacency-only' : ''}`}>
           <div
-            className={`messages-content ${useConstrainedLayout ? 'constrained' : ''} ${annotationMode === 'adjacency_pairs' ? 'adjacency-layout' : ''} ${selectedRelation ? 'relation-dimmed' : ''} ${hoveredRelation ? 'relation-hover-dimmed' : ''} ${replyHoverIds ? 'reply-dimmed' : ''} ${hoveredUserId ? 'user-hover-dimmed' : ''}`}
+            className={`messages-content ${annotationMode === 'adjacency_pairs' ? 'adjacency-layout' : ''} ${shouldFocusRelations ? 'relation-focus-dimmed' : ''} ${selectedRelation ? 'relation-dimmed' : ''} ${hoveredRelation ? 'relation-hover-dimmed' : ''} ${replyHoverIds ? 'reply-dimmed' : ''} ${hoveredUserId ? 'user-hover-dimmed' : ''}`}
             ref={messagesContentRef}
             style={{ '--relations-width': `${relationsWidth}px` }}
           >
@@ -829,11 +910,10 @@ const AnnotatorChatRoomPage = () => {
                     </marker>
                   </defs>
                   {lineWithLanes.map((line) => {
-                    const midY = (line.fromY + line.toY) / 2;
                     const x = relationsWidth - 12 - line.lane * laneGap;
-                    const curveOut = x - 56;
-                    const labelX = x - 8;
+                    const curveOut = x - 34;
                     const isSelected = selectedRelationId === line.id;
+                    const isFocused = shouldFocusRelations && hoveredRelationIds.has(line.id);
                     return (
                       <g key={line.id}>
                         <path
@@ -841,7 +921,7 @@ const AnnotatorChatRoomPage = () => {
                           stroke={line.color}
                           strokeWidth={isSelected ? '3' : '2'}
                           fill="none"
-                          className={`relation-line ${isSelected ? 'selected' : ''}`}
+                          className={`relation-line ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''}`}
                           onClick={(event) => {
                             event.stopPropagation();
                             setSelectedRelationId(line.id);
@@ -849,23 +929,6 @@ const AnnotatorChatRoomPage = () => {
                           onMouseEnter={() => setHoveredRelationId(line.id)}
                           onMouseLeave={() => setHoveredRelationId(null)}
                         />
-                        <text
-                          x={labelX}
-                          y={midY}
-                          fill={line.color}
-                          fontSize="12"
-                          fontWeight="700"
-                          dominantBaseline="middle"
-                          className={`relation-label ${isSelected ? 'selected' : ''}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedRelationId(line.id);
-                          }}
-                          onMouseEnter={() => setHoveredRelationId(line.id)}
-                          onMouseLeave={() => setHoveredRelationId(null)}
-                        >
-                          {line.label}
-                        </text>
                       </g>
                     );
                   })}
@@ -927,6 +990,8 @@ const AnnotatorChatRoomPage = () => {
                   onReplyHoverEnd={clearReplyHover}
                   onUserHover={handleUserHover}
                   onUserHoverEnd={handleUserHoverEnd}
+                  onMessageHover={(messageId) => setHoveredMessageId(messageId)}
+                  onMessageHoverEnd={() => setHoveredMessageId(null)}
                 />
               );
             })}
@@ -935,14 +1000,14 @@ const AnnotatorChatRoomPage = () => {
         </div>
 
         {annotationMode !== 'adjacency_pairs' && (
-          <div className={`threads-sidebar ${useConstrainedLayout ? 'constrained' : ''}`}>
+          <div className="threads-sidebar">
             <h3>Chat Threads</h3>
             {allThreads.length === 0 ? (
               <p className="no-threads">
                 No threads created yet. Start by adding threads to messages on the left.
               </p>
             ) : (
-              <div className={`threads-overview ${useConstrainedLayout ? 'constrained' : ''}`}>
+              <div className="threads-overview">
                 <p className="threads-count">{allThreads.length} threads found:</p>
                 <div className="threads-list">
                   {allThreads.map(threadId => {
@@ -1077,6 +1142,7 @@ const AnnotatorChatRoomPage = () => {
 };
 
 export default AnnotatorChatRoomPage;
+
 
 
 

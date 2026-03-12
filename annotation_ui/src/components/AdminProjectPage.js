@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { projects as projectsApi, users as usersApi, annotations as annotationsApi } from '../utils/api';
+import { projects as projectsApi, users as usersApi, annotations as annotationsApi, adjacencyPairs as adjacencyPairsApi } from '../utils/api';
 import ErrorMessage from './ErrorMessage';
+import Modal from './Modal';
 import './AdminProjectPage.css';
 
 const AdminProjectPage = () => {
@@ -21,8 +22,14 @@ const AdminProjectPage = () => {
     const [userToAssign, setUserToAssign] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [relationTypesInput, setRelationTypesInput] = useState('');
+    const [relationTypes, setRelationTypes] = useState([]);
+    const [relationTypeInput, setRelationTypeInput] = useState('');
     const [isUpdatingProject, setIsUpdatingProject] = useState(false);
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
+    const [descriptionDraft, setDescriptionDraft] = useState('');
+    const [dragIndex, setDragIndex] = useState(null);
+    const [exportModal, setExportModal] = useState({ visible: false, roomId: null, roomName: '' });
+    const [exportAnnotatorId, setExportAnnotatorId] = useState('all');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -35,7 +42,8 @@ const AdminProjectPage = () => {
                 projectsApi.getChatRooms(projectId)
             ]);
             setProject(projectData);
-            setRelationTypesInput((projectData.relation_types || []).join(', '));
+            setRelationTypes(projectData.relation_types || []);
+            setDescriptionDraft(projectData.description || '');
             setAssignedUsers(assignedUsersData);
             setAllUsers(allUsersData);
             setChatRooms(chatRoomsData);
@@ -52,6 +60,32 @@ const AdminProjectPage = () => {
 
     const fetchChatRoomAnalytics = async (rooms, projectData) => {
         const analytics = {};
+
+        if (projectData?.annotation_type === 'adjacency_pairs') {
+            for (const room of rooms) {
+                try {
+                    const statusData = await annotationsApi.getAdjacencyPairsStatus(room.id);
+                    analytics[room.id] = {
+                        status: statusData.status,
+                        completedAnnotators: statusData.completed_count,
+                        totalAnnotators: statusData.total_assigned,
+                        averageAgreement: null,
+                        canAnalyze: false
+                    };
+                } catch (err) {
+                    console.error(`Failed to fetch adjacency status for room ${room.id}:`, err);
+                    analytics[room.id] = {
+                        status: 'Error',
+                        completedAnnotators: 0,
+                        totalAnnotators: 0,
+                        averageAgreement: null,
+                        canAnalyze: false
+                    };
+                }
+            }
+            setChatRoomAnalytics(analytics);
+            return;
+        }
 
         if (projectData?.annotation_type !== 'disentanglement') {
             rooms.forEach((room) => {
@@ -190,22 +224,71 @@ const AdminProjectPage = () => {
         }
     };
 
-    const handleUpdateRelationTypes = async (e) => {
-        e.preventDefault();
+    const handleUpdateRelationTypes = async (nextTypes) => {
         if (!project) return;
-        const cleanedRelationTypes = relationTypesInput
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
         setIsUpdatingProject(true);
         try {
             const updated = await projectsApi.updateProject(projectId, {
-                relation_types: cleanedRelationTypes
+                relation_types: nextTypes
             });
             setProject(updated);
-            setRelationTypesInput((updated.relation_types || []).join(', '));
+            setRelationTypes(updated.relation_types || []);
         } catch (err) {
             console.error("Failed to update project:", err);
+            setError(err.response?.data?.detail || 'Failed to update project.');
+        } finally {
+            setIsUpdatingProject(false);
+        }
+    };
+
+    const handleAddRelationType = (e) => {
+        e.preventDefault();
+        const value = relationTypeInput.trim();
+        if (!value) return;
+        if (relationTypes.includes(value)) return;
+        const nextTypes = [...relationTypes, value];
+        setRelationTypes(nextTypes);
+        handleUpdateRelationTypes(nextTypes);
+        setRelationTypeInput('');
+    };
+
+    const handleRemoveRelationType = (value) => {
+        const nextTypes = relationTypes.filter((item) => item !== value);
+        setRelationTypes(nextTypes);
+        handleUpdateRelationTypes(nextTypes);
+    };
+
+    const handleSortRelationTypes = () => {
+        const nextTypes = [...relationTypes].sort((a, b) => a.localeCompare(b));
+        setRelationTypes(nextTypes);
+        handleUpdateRelationTypes(nextTypes);
+    };
+
+    const handleDragStart = (index) => {
+        setDragIndex(index);
+    };
+
+    const handleDrop = (index) => {
+        if (dragIndex === null || dragIndex === index) return;
+        const next = [...relationTypes];
+        const [moved] = next.splice(dragIndex, 1);
+        next.splice(index, 0, moved);
+        setRelationTypes(next);
+        handleUpdateRelationTypes(next);
+        setDragIndex(null);
+    };
+
+    const handleUpdateDescription = async () => {
+        if (!project) return;
+        setIsUpdatingProject(true);
+        try {
+            const updated = await projectsApi.updateProject(projectId, {
+                description: descriptionDraft
+            });
+            setProject(updated);
+            setIsEditingDescription(false);
+        } catch (err) {
+            console.error("Failed to update description:", err);
             setError(err.response?.data?.detail || 'Failed to update project.');
         } finally {
             setIsUpdatingProject(false);
@@ -215,6 +298,12 @@ const AdminProjectPage = () => {
     const handleExportChatRoom = async (chatRoomId, chatRoomName, analytics) => {
         try {
             setError(null);
+
+            if (project.annotation_type === 'adjacency_pairs') {
+                setExportAnnotatorId('all');
+                setExportModal({ visible: true, roomId: chatRoomId, roomName: chatRoomName });
+                return;
+            }
             
             // Show confirmation for partial exports
             if (analytics.status === 'Partial') {
@@ -251,6 +340,29 @@ const AdminProjectPage = () => {
         } catch (err) {
             console.error("Failed to export chat room:", err);
             setError(err.message || 'Failed to export chat room data.');
+        }
+    };
+
+    const handleExportAdjacencyPairs = async () => {
+        if (!exportModal.roomId) return;
+        try {
+            const annotatorId = exportAnnotatorId === 'all' ? null : parseInt(exportAnnotatorId, 10);
+            const safeRoomName = (exportModal.roomName || `chat_room_${exportModal.roomId}`).replace(/\s+/g, '-');
+            let filenameOverride = null;
+            if (annotatorId == null) {
+                filenameOverride = `${safeRoomName}-all.zip`;
+            } else {
+                const user = assignedUsers.find((u) => u.id === annotatorId);
+                const email = user?.email || `user_${annotatorId}`;
+                const local = email.split('@')[0];
+                const safeAnnotator = local.replace(/\s+/g, '-');
+                filenameOverride = `${safeRoomName}-${safeAnnotator}.txt`;
+            }
+            await adjacencyPairsApi.exportChatRoomPairs(exportModal.roomId, annotatorId, filenameOverride);
+            setExportModal({ visible: false, roomId: null, roomName: '' });
+        } catch (err) {
+            console.error("Failed to export adjacency pairs:", err);
+            setError(err.message || 'Failed to export adjacency pairs.');
         }
     };
 
@@ -292,6 +404,9 @@ const AdminProjectPage = () => {
 
     const getStatusBadge = (status) => {
         const badges = {
+            'Completed': { class: 'status-complete', text: 'Completed' },
+            'Started': { class: 'status-partial', text: 'Started' },
+            'NotStarted': { class: 'status-unknown', text: 'Not Started' },
             'Complete': { class: 'status-complete', text: 'Annotated' },
             'Partial': { class: 'status-partial', text: 'In Progress' },
             'NotEnoughData': { class: 'status-insufficient', text: 'Insufficient Data' },
@@ -321,7 +436,45 @@ const AdminProjectPage = () => {
                 <button onClick={() => navigate('/admin')} className="back-button">← Back to Dashboard</button>
                 <h1>Manage Project<br /><span className="project-name">{project.name}</span></h1>
             </header>
-            <p className="project-description">{project.description}</p>
+            <div className="management-section">
+                <div className="section-header">
+                    <h2>Project Description</h2>
+                    {!isEditingDescription && (
+                        <button
+                            className="icon-button"
+                            onClick={() => setIsEditingDescription(true)}
+                            title="Edit description"
+                        >
+                            ✎
+                        </button>
+                    )}
+                </div>
+                {!isEditingDescription ? (
+                    <p className="project-description">{project.description || 'No description'}</p>
+                ) : (
+                    <div className="project-description-edit">
+                        <textarea
+                            value={descriptionDraft}
+                            onChange={(e) => setDescriptionDraft(e.target.value)}
+                            rows={3}
+                        />
+                        <div className="description-actions">
+                            <button className="action-button" onClick={handleUpdateDescription} disabled={isUpdatingProject}>
+                                Save
+                            </button>
+                            <button
+                                className="action-button secondary"
+                                onClick={() => {
+                                    setDescriptionDraft(project.description || '');
+                                    setIsEditingDescription(false);
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
             {error && (
                 <ErrorMessage
                     type="warning"
@@ -340,19 +493,51 @@ const AdminProjectPage = () => {
                     </div>
                 </div>
                 {project.annotation_type === 'adjacency_pairs' && (
-                    <form onSubmit={handleUpdateRelationTypes} className="assign-user-form">
-                        <label>Relation Types (comma-separated)</label>
-                        <input
-                            type="text"
-                            value={relationTypesInput}
-                            onChange={(e) => setRelationTypesInput(e.target.value)}
-                            placeholder="Question-Answer, Greeting-Response, etc."
-                            required
-                        />
-                        <button type="submit" className="action-button" disabled={isUpdatingProject}>
-                            {isUpdatingProject ? 'Saving...' : 'Save Relation Types'}
-                        </button>
-                    </form>
+                    <div className="relation-types-editor">
+                        <label>Relation Types</label>
+                        <form onSubmit={handleAddRelationType} className="relation-input-row">
+                            <input
+                                type="text"
+                                value={relationTypeInput}
+                                onChange={(e) => setRelationTypeInput(e.target.value)}
+                                placeholder="Type a relation and press Enter"
+                            />
+                            <button type="submit" className="action-button secondary">
+                                Add
+                            </button>
+                        </form>
+                        <div className="relation-types-actions">
+                            <button className="action-button secondary" onClick={handleSortRelationTypes}>
+                                Sort A-Z
+                            </button>
+                        </div>
+                        <div className="relation-types-list">
+                            {relationTypes.length === 0 ? (
+                                <div className="no-data">No relation types yet.</div>
+                            ) : (
+                                relationTypes.map((type, index) => (
+                                    <div
+                                        key={`${type}-${index}`}
+                                        className="relation-type-tag"
+                                        draggable
+                                        onDragStart={() => handleDragStart(index)}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={() => handleDrop(index)}
+                                    >
+                                        <span className="tag-handle">⋮⋮</span>
+                                        <span className="tag-label">{type}</span>
+                                        <button
+                                            className="tag-remove"
+                                            onClick={() => handleRemoveRelationType(type)}
+                                            title="Remove"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 )}
             </div>
             
@@ -483,8 +668,8 @@ const AdminProjectPage = () => {
                                                     <button 
                                                         onClick={() => handleExportChatRoom(room.id, room.name, chatRoomAnalytics[room.id])}
                                                         className="action-button export-button"
-                                                        disabled={!chatRoomAnalytics[room.id]?.canAnalyze}
-                                                        title={!chatRoomAnalytics[room.id]?.canAnalyze ? "Not enough data to export" : "Export annotations"}
+                                                        disabled={project.annotation_type !== 'adjacency_pairs' && !chatRoomAnalytics[room.id]?.canAnalyze}
+                                                        title={project.annotation_type === 'adjacency_pairs' ? "Export adjacency pairs" : (!chatRoomAnalytics[room.id]?.canAnalyze ? "Not enough data to export" : "Export annotations")}
                                                     >
                                                         Export
                                                     </button>
@@ -525,6 +710,31 @@ const AdminProjectPage = () => {
                     </div>
                 )}
             </div>
+
+            <Modal
+                isOpen={exportModal.visible}
+                onClose={() => setExportModal({ visible: false, roomId: null, roomName: '' })}
+                title="Export Adjacency Pairs"
+                size="small"
+            >
+                <div className="export-modal-content">
+                    <label>Export scope</label>
+                    <select
+                        value={exportAnnotatorId}
+                        onChange={(e) => setExportAnnotatorId(e.target.value)}
+                    >
+                        <option value="all">All users</option>
+                        {assignedUsers.map((user) => (
+                            <option key={user.id} value={user.id}>
+                                {user.email}
+                            </option>
+                        ))}
+                    </select>
+                    <button className="action-button export-button" onClick={handleExportAdjacencyPairs}>
+                        Export
+                    </button>
+                </div>
+            </Modal>
             
             <div className="management-section danger-zone">
                 <h2>Danger Zone</h2>
@@ -532,9 +742,11 @@ const AdminProjectPage = () => {
                     <p>
                         Deleting a project is a permanent action. It will remove the project, all its chat rooms, turns, and annotations.
                     </p>
-                    <button onClick={handleDeleteProject} className="action-button delete">
-                        Delete This Project
-                    </button>
+                    <div className="danger-zone-actions">
+                        <button onClick={handleDeleteProject} className="action-button delete">
+                            Delete This Project
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

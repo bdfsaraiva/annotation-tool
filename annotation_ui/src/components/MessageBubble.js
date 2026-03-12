@@ -33,6 +33,8 @@ const MessageBubble = ({
   onReplyHoverEnd,
   onUserHover,
   onUserHoverEnd,
+  onMessageHover,
+  onMessageHoverEnd,
   adjacencyPairsOutgoing = [],
   adjacencyPairsIncoming = [],
   onPairDelete
@@ -168,6 +170,16 @@ const MessageBubble = ({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onMouseEnter={() => {
+        if (relationMode && onMessageHover) {
+          onMessageHover(message.id);
+        }
+      }}
+      onMouseLeave={() => {
+        if (relationMode && onMessageHoverEnd) {
+          onMessageHoverEnd();
+        }
+      }}
       onClick={() => {
         if (relationMode && onPairSelect) {
           onPairSelect(message.id);
@@ -212,18 +224,29 @@ const MessageBubble = ({
             <span className="reply-to-value">{getNumericTurnId(replyToValue)}</span>
           </span>
         )}
-        {/* Thread indicator for annotated messages */}
-        {threadColor && currentUserAnnotation && (
-          <span 
-            className="thread-indicator"
-            style={{ 
-              backgroundColor: threadColor
-            }}
-            title={`Thread: ${currentUserAnnotation.thread_id}`}
-          >
-            {currentUserAnnotation.thread_id}
-          </span>
-        )}
+        <div className="message-header-actions">
+          {/* Thread indicator for annotated messages */}
+          {threadColor && currentUserAnnotation && (
+            <span 
+              className="thread-indicator"
+              style={{ 
+                backgroundColor: threadColor
+              }}
+              title={`Thread: ${currentUserAnnotation.thread_id}`}
+            >
+              {currentUserAnnotation.thread_id}
+            </span>
+          )}
+          {!relationMode && (
+            <button 
+              className="add-thread-button header"
+              onClick={() => setShowThreadInput(!showThreadInput)}
+              disabled={isAnnotating}
+            >
+              {showThreadInput ? 'Cancel' : currentUserAnnotation ? 'Change Thread' : '+ Add Thread'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="message-content">
@@ -241,63 +264,55 @@ const MessageBubble = ({
 
       {!relationMode && (
         <div className="thread-section">
-        <button 
-          className="add-thread-button"
-          onClick={() => setShowThreadInput(!showThreadInput)}
-          disabled={isAnnotating}
-        >
-          {showThreadInput ? 'Cancel' : currentUserAnnotation ? 'Change Thread' : '+ Add Thread'}
-        </button>
-
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-
-        {showThreadInput && (
-          <div className="thread-input-section">
-            <input
-              type="text"
-              value={threadInput}
-              onChange={(e) => setThreadInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder={currentUserAnnotation ? 
-                `Change from "${currentUserAnnotation.thread_id}" to...` : 
-                "Type thread name and press Enter..."
-              }
-              className="thread-input"
-              autoFocus
-            />
-            <div className="input-hint">
-              {currentUserAnnotation ? 
-                'Press Enter to change thread, Escape to cancel' :
-                'Press Enter to add, Escape to cancel'
-              }
+          {error && (
+            <div className="error-message">
+              {error}
             </div>
-            
-            {availableThreads.length > 0 && (
-              <div className="existing-threads">
-                <div className="existing-threads-label">Or select existing thread:</div>
-                <div className="thread-chips">
-                  {availableThreads.map(thread => (
-                    <button
-                      key={thread}
-                      className="thread-chip"
-                      style={{ 
-                        backgroundColor: threadColors[thread] || '#6B7280'
-                      }}
-                      onClick={() => handleThreadSelect(thread)}
-                    >
-                      {thread}
-                    </button>
-                  ))}
-                </div>
+          )}
+
+          {showThreadInput && (
+            <div className="thread-input-section">
+              <input
+                type="text"
+                value={threadInput}
+                onChange={(e) => setThreadInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder={currentUserAnnotation ? 
+                  `Change from "${currentUserAnnotation.thread_id}" to...` : 
+                  "Type thread name and press Enter..."
+                }
+                className="thread-input"
+                autoFocus
+              />
+              <div className="input-hint">
+                {currentUserAnnotation ? 
+                  'Press Enter to change thread, Escape to cancel' :
+                  'Press Enter to add, Escape to cancel'
+                }
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              
+              {availableThreads.length > 0 && (
+                <div className="existing-threads">
+                  <div className="existing-threads-label">Or select existing thread:</div>
+                  <div className="thread-chips">
+                    {availableThreads.map(thread => (
+                      <button
+                        key={thread}
+                        className="thread-chip"
+                        style={{ 
+                          backgroundColor: threadColors[thread] || '#6B7280'
+                        }}
+                        onClick={() => handleThreadSelect(thread)}
+                      >
+                        {thread}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
