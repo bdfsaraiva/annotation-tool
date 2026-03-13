@@ -46,7 +46,7 @@ const AnnotatorDashboard = () => {
         <div className="annotator-dashboard">
             <div className="dashboard-header">
                 <h2>Annotator Dashboard</h2>
-                <p>Welcome, {currentUser?.email}! Here are your assigned projects.</p>
+                <p>Welcome, {currentUser?.username}! Here are your assigned projects.</p>
                 {projectsList.length > 0 && (
                     <div className="dashboard-stats">
                         <span className="stat-item">

@@ -1,11 +1,10 @@
 api:
-  admin_email: admin@example.com
+  admin_username: admin
   admin_password: admin
   base_url: http://localhost:8000
 import:
   auto_confirm: false
   default_user_password: password
-  email_domain: research.pt
 project:
   last_used_project_id: 27
   mode: select_existing

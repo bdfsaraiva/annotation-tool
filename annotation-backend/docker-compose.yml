@@ -10,7 +10,7 @@ services:
       - ./data:/app/data
     environment:
       - SQLALCHEMY_DATABASE_URL=sqlite:///app/data/app.db
-      - FIRST_ADMIN_EMAIL=admin@example.com
+      - FIRST_ADMIN_USERNAME=admin
       - FIRST_ADMIN_PASSWORD=admin
       - SECRET_KEY=your-secret-key-here
       - ALGORITHM=HS256

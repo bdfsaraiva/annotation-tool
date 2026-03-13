@@ -224,20 +224,20 @@ class BatchExcelImportManager:
                 print(f"👥 Creating {len(import_data['users'])} users")
             
             users_data = [self.transformer.convert_to_api_format(user) for user in import_data['users']]
-            user_email_to_id = self.api_client.batch_create_users(users_data)
+            user_username_to_id = self.api_client.batch_create_users(users_data)
             
-            if not user_email_to_id:
+            if not user_username_to_id:
                 result.status = "error"
                 result.error_message = "Failed to create any users"
                 return result
             
-            result.users_created = list(user_email_to_id.keys())
+            result.users_created = list(user_username_to_id.keys())
             
             # Step 6: Assign users to project
             if show_progress:
                 print(f"🔗 Assigning users to project {actual_project_id}")
             
-            user_ids = list(user_email_to_id.values())
+            user_ids = list(user_username_to_id.values())
             assigned_users = self.api_client.batch_assign_users_to_project(actual_project_id, user_ids)
             
             # Step 7: Create chat room and import messages in one operation
@@ -267,12 +267,12 @@ class BatchExcelImportManager:
             else:
                 pbar = annotations_by_user.items()
             
-            for user_email, annotations in pbar:
-                if user_email not in user_email_to_id:
-                    logger.warning(f"User {user_email} not found in created users")
+            for username, annotations in pbar:
+                if username not in user_username_to_id:
+                    logger.warning(f"User {username} not found in created users")
                     continue
                 
-                user_id = user_email_to_id[user_email]
+                user_id = user_username_to_id[username]
                 
                 if annotations:  # Only import if there are annotations
                     annotations_csv = self.transformer.prepare_annotations_import_data(annotations)

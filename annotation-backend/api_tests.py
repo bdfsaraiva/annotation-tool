@@ -21,7 +21,7 @@ from typing import Optional, Dict, Any
 
 # Configuration
 BASE_URL = "http://localhost:8000"
-ADMIN_EMAIL = "admin@example.com"
+ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin"
 
 class APITester:
@@ -30,13 +30,13 @@ class APITester:
         self.access_token: Optional[str] = None
         self.headers: Dict[str, str] = {}
     
-    def login(self, email: str, password: str) -> bool:
+    def login(self, username: str, password: str) -> bool:
         """Login and get access token"""
         try:
             response = requests.post(
                 f"{self.base_url}/auth/token",
                 data={
-                    "username": email,
+                    "username": username,
                     "password": password
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"}
@@ -49,7 +49,7 @@ class APITester:
                     "Authorization": f"Bearer {self.access_token}",
                     "Content-Type": "application/json"
                 }
-                print(f"✅ Login successful for {email}")
+                print(f"✅ Login successful for {username}")
                 return True
             else:
                 print(f"❌ Login failed: {response.status_code} - {response.text}")
@@ -85,7 +85,7 @@ class APITester:
                 print(f"🔍 Pairwise Accuracies:")
                 
                 for accuracy in data['pairwise_accuracies']:
-                    print(f"   {accuracy['annotator_1_email']} vs {accuracy['annotator_2_email']}: {accuracy['accuracy']:.2f}%")
+                    print(f"   {accuracy['annotator_1_username']} vs {accuracy['annotator_2_username']}: {accuracy['accuracy']:.2f}%")
                 
                 return True
             
@@ -217,7 +217,7 @@ def main():
         sys.exit(1)
     
     # Login
-    if not tester.login(ADMIN_EMAIL, ADMIN_PASSWORD):
+    if not tester.login(ADMIN_USERNAME, ADMIN_PASSWORD):
         print("❌ Login failed. Check credentials and user existence.")
         sys.exit(1)
     

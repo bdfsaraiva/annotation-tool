@@ -1,0 +1,10 @@
+[run]
+source = app
+omit =
+    */__pycache__/*
+    */alembic/*
+    */tests/*
+
+[report]
+show_missing = True
+skip_empty = True

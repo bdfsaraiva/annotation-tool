@@ -4,7 +4,7 @@ import { auth } from '../utils/api';
 import './LoginPage.css';
 
 const LoginPage = () => {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth();
@@ -13,7 +13,7 @@ const LoginPage = () => {
         e.preventDefault();
         setError('');
         try {
-            const data = await auth.login(email, password);
+            const data = await auth.login(username, password);
             if (data.access_token) {
                 const userData = await auth.getCurrentUser();
                 login(userData);
@@ -30,12 +30,13 @@ const LoginPage = () => {
                 <h2>Login</h2>
                 {error && <p className="error-message">{error}</p>}
                 <div className="form-group">
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="username">Username</label>
                     <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        type="text"
+                        id="username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        minLength={3}
                         required
                     />
                 </div>

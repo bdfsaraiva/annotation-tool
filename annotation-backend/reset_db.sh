@@ -37,7 +37,7 @@ from app.auth import get_password_hash
 db = SessionLocal()
 try:
     admin = User(
-        email="admin@example.com",
+        username="admin",
         hashed_password=get_password_hash("admin"),
         is_admin=True
     )

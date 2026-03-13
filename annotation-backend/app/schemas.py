@@ -1,17 +1,17 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
 # User Schemas
 class UserBase(BaseModel):
-    email: EmailStr
+    username: str = Field(..., min_length=3)
 
 class UserCreate(UserBase):
     password: str
     is_admin: bool = False
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
+    username: Optional[str] = Field(default=None, min_length=3)
     password: Optional[str] = None
     is_admin: Optional[bool] = None
 
@@ -91,6 +91,7 @@ class ChatMessage(ChatMessageBase):
 
 class MessageList(BaseModel):
     messages: List[ChatMessage]
+    total: int
 
 # Annotation Schemas
 class AnnotationBase(BaseModel):
@@ -103,7 +104,7 @@ class AnnotationCreate(AnnotationBase):
 class Annotation(AnnotationBase):
     id: int
     annotator_id: int
-    annotator_email: str
+    annotator_username: str
     project_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -126,7 +127,7 @@ class AdjacencyPairCreate(AdjacencyPairBase):
 class AdjacencyPair(AdjacencyPairBase):
     id: int
     annotator_id: int
-    annotator_email: str
+    annotator_username: str
     project_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -154,8 +155,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
 class TokenData(BaseModel):
-    email: Optional[str] = None
+    username: Optional[str] = None
 
 class CSVImportResponse(BaseModel):
     message: str = "Import completed"
@@ -176,7 +180,7 @@ class AnnotationImportResponse(BaseModel):
     message: str = "Annotation import completed"
     chat_room_id: int
     annotator_id: int
-    annotator_email: str
+    annotator_username: str
     total_annotations: int
     imported_count: int
     skipped_count: int
@@ -186,7 +190,7 @@ class AnnotationImportResponse(BaseModel):
 
 class AnnotationDetail(BaseModel):
     annotator_id: int
-    annotator_email: str
+    annotator_username: str
     thread_id: str
 
 class AggregatedMessageAnnotations(BaseModel):
@@ -202,7 +206,7 @@ class AggregatedAnnotationsResponse(BaseModel):
     total_messages: int
     annotated_messages: int
     total_annotators: int
-    annotators: List[str]  # List of annotator emails
+    annotators: List[str]  # List of annotator usernames
 
 # PHASE 4: BATCH ANNOTATION IMPORT SCHEMAS
 
@@ -218,7 +222,7 @@ class BatchAnnotatorMetadata(BaseModel):
     notes: Optional[str] = None
 
 class BatchAnnotator(BaseModel):
-    annotator_email: EmailStr
+    annotator_username: str = Field(..., min_length=3)
     annotator_name: str
     annotator_metadata: Optional[BatchAnnotatorMetadata] = None
     annotations: List[BatchAnnotationItem]
@@ -236,7 +240,7 @@ class BatchAnnotationImport(BaseModel):
     annotators: List[BatchAnnotator]
 
 class BatchAnnotationResult(BaseModel):
-    annotator_email: str
+    annotator_username: str
     annotator_name: str
     user_id: int
     imported_count: int
@@ -259,14 +263,14 @@ class PairwiseAccuracy(BaseModel):
     """Represents the one-to-one accuracy score between two annotators."""
     annotator_1_id: int
     annotator_2_id: int
-    annotator_1_email: str
-    annotator_2_email: str
+    annotator_1_username: str
+    annotator_2_username: str
     accuracy: float
 
 class AnnotatorInfo(BaseModel):
     """Information about an annotator."""
     id: int
-    email: str
+    username: str
 
 class ChatRoomCompletionSummary(BaseModel):
     chat_room_id: int

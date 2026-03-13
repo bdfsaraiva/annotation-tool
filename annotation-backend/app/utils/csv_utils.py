@@ -20,7 +20,7 @@ def import_chat_messages(file_path: str) -> List[Dict[str, Any]]:
             quoting=csv.QUOTE_MINIMAL,  # Handle quoted fields
             escapechar='\\',  # Allow escaping of quotes
             encoding='utf-8',  # Ensure proper UTF-8 encoding
-            on_bad_lines='skip'  # Skip problematic lines
+            on_bad_lines='error'  # Fail fast on malformed lines
         )
         
         # Convert column names to lowercase for case-insensitive matching
@@ -80,7 +80,7 @@ def validate_csv_format(file_path: str) -> bool:
             quoting=csv.QUOTE_MINIMAL,
             escapechar='\\',
             encoding='utf-8',
-            on_bad_lines='skip'
+            on_bad_lines='error'
         )
         
         # Convert column names to lowercase
@@ -122,7 +122,7 @@ def import_annotations_from_csv(file_path: str) -> List[Dict[str, Any]]:
             quoting=csv.QUOTE_MINIMAL,
             escapechar='\\',
             encoding='utf-8',
-            on_bad_lines='skip'
+            on_bad_lines='error'
         )
         
         # Convert column names to lowercase for case-insensitive matching
@@ -185,7 +185,7 @@ def validate_annotations_csv_format(file_path: str) -> bool:
             quoting=csv.QUOTE_MINIMAL,
             escapechar='\\',
             encoding='utf-8',
-            on_bad_lines='skip'
+            on_bad_lines='error'
         )
         
         # Convert column names to lowercase

@@ -33,11 +33,11 @@ async def create_user(
 ):
     """Create a new user (admin only)"""
     # Check if user exists
-    existing_user = crud.get_user_by_email(db, user_data.email)
+    existing_user = crud.get_user_by_username(db, user_data.username)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Username already registered"
         )
     
     # Create user with hashed password
@@ -60,12 +60,12 @@ async def update_user(
             detail="User not found"
         )
 
-    if updates.email:
-        existing_user = crud.get_user_by_email(db, updates.email)
+    if updates.username:
+        existing_user = crud.get_user_by_username(db, updates.username)
         if existing_user and existing_user.id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Username already registered"
             )
 
     hashed_password = None
@@ -197,7 +197,8 @@ async def create_chat_room_and_import_csv(
         )
 
     # Save uploaded file temporarily
-    temp_file_path = f"uploads/{file.filename}"
+    safe_filename = os.path.basename(file.filename)
+    temp_file_path = f"uploads/{safe_filename}"
     new_chat_room = None
     try:
         contents = await file.read()
@@ -210,6 +211,7 @@ async def create_chat_room_and_import_csv(
         
         # Import messages using our simple utility
         messages = import_chat_messages(temp_file_path)
+        existing_turns = {m["turn_id"] for m in messages if m.get("turn_id")}
 
         # Create chat room using filename (remove extension)
         chat_room_name = os.path.splitext(file.filename)[0]
@@ -238,6 +240,14 @@ async def create_chat_room_and_import_csv(
                     skipped_count += 1
                     warnings.append(f"Message with turn_id {message['turn_id']} already exists")
                     continue
+                
+                # Validate reply_to_turn if present
+                reply_to_turn = message.get('reply_to_turn')
+                if reply_to_turn and reply_to_turn not in existing_turns:
+                    warnings.append(
+                        f"Message {message['turn_id']} references missing reply_to_turn {reply_to_turn}; cleared."
+                    )
+                    message_schema.reply_to_turn = None
                 
                 # Create message
                 crud.create_chat_message(db, message=message_schema, chat_room_id=new_chat_room.id)
@@ -395,7 +405,7 @@ async def import_annotations_for_chat_room(
         return schemas.AnnotationImportResponse(
             chat_room_id=chat_room_id,
             annotator_id=user_id,
-            annotator_email=user.email,
+            annotator_username=user.username,
             total_annotations=len(annotations_data),
             imported_count=imported_count,
             skipped_count=skipped_count,
@@ -445,7 +455,7 @@ async def get_aggregated_annotations(
     all_annotators = set()
     for message in aggregated_data:
         for annotation in message["annotations"]:
-            all_annotators.add(annotation["annotator_email"])
+            all_annotators.add(annotation["annotator_username"])
     
     annotators = sorted(list(all_annotators))
     
@@ -474,7 +484,7 @@ async def import_batch_annotations(
     This endpoint accepts a JSON file containing structured batch annotation data
     with multiple annotators and their annotations. It will:
     1. Validate the JSON structure against the expected schema
-    2. Create users if they don't exist (based on email)
+    2. Create users if they don't exist (based on username)
     3. Import all annotations for each annotator
     4. Return detailed statistics about the import operation
     
@@ -676,12 +686,12 @@ async def export_adjacency_pairs(
             detail="This chat room does not belong to an adjacency pairs project"
         )
 
-    annotator_email = None
+    annotator_username = None
     if annotator_id is not None:
         user = crud.get_user(db, annotator_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Annotator not found")
-        annotator_email = user.email
+        annotator_username = user.username
 
     FromMessage = aliased(models.ChatMessage)
     ToMessage = aliased(models.ChatMessage)
@@ -701,8 +711,7 @@ async def export_adjacency_pairs(
         lines = [f"{from_turn},{to_turn},{pair.relation_type}" for pair, from_turn, to_turn in pairs]
         content = "\n".join(lines)
 
-        annotator_local = (annotator_email or f"user_{annotator_id}").split("@")[0]
-        safe_annotator = annotator_local.replace(" ", "-")
+        safe_annotator = (annotator_username or f"user_{annotator_id}").replace(" ", "-")
         filename = f"{safe_room_name}-{safe_annotator}.txt"
         return Response(
             content=content,
@@ -740,8 +749,7 @@ async def export_adjacency_pairs(
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for user in assigned_users:
-            annotator_local = (user.email or f"user_{user.id}").split("@")[0]
-            safe_annotator = annotator_local.replace(" ", "-")
+            safe_annotator = (user.username or f"user_{user.id}").replace(" ", "-")
             fname = f"{safe_room_name}-{safe_annotator}.txt"
             lines = grouped_by_user.get(user.id, [])
             zf.writestr(fname, "\n".join(lines))

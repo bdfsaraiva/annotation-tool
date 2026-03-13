@@ -2,7 +2,7 @@
 
 api:
   base_url: "http://localhost:8000"
-  admin_email: "admin@example.com"
+  admin_username: "admin"
   admin_password: "admin"
 
 project:
@@ -24,9 +24,6 @@ project:
   last_used_project_id: null
 
 import:
-  # Email domain for creating user accounts
-  email_domain: "research.pt"
-  
   # Default password for new users
   default_user_password: "ChangeMe123!"
   

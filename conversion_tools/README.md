@@ -158,7 +158,7 @@ graph TD
 
 #### Fase 3: Transformação de Dados
 1. **Criação de Schemas**: Conversão para objectos compatíveis com a API
-2. **Geração de Utilizadores**: Criação automática de contas de email baseadas em nomes
+2. **Geração de Utilizadores**: Criação automática de contas de username baseadas em nomes
 3. **Preparação CSV**: Formatação para upload via API
 4. **Validação Final**: Verificação de integridade dos dados transformados
 
@@ -239,11 +239,10 @@ cp config.yaml.example config.yaml
 ```yaml
 api:
   base_url: "http://localhost:8000"  # Ou IP do servidor
-  admin_email: "admin@example.com"
+  admin_username: "admin"
   admin_password: "admin"
 
 import:
-  email_domain: "research.pt"
   default_user_password: "password"  # Password simplificada para testing
   auto_confirm: false  # Para verificar dados antes de importar
 ```
@@ -265,7 +264,7 @@ python import_excel.py --folder ../uploads/Archive
 2. **Preview** dos dados (quantos anotadores, mensagens, anotações)
 3. **Seleção** de projeto (criar novo ou usar existente)
 4. **Importação completa**:
-   - Criação de utilizadores com emails limpos: `joao@research.pt`, `maria@research.pt`
+   - Criação de utilizadores com usernames limpos: `joao`, `maria`
    - Passwords simples: `password`
    - Importação de mensagens e anotações de cada anotador
    - Associação ao projeto selecionado
@@ -274,7 +273,7 @@ python import_excel.py --folder ../uploads/Archive
 
 **Login como administrador**:
 - URL: http://localhost:3721 (ou IP do servidor)
-- Email: `admin@example.com`
+- Username: `admin`
 - Password: `admin`
 
 **Verificações**:
@@ -285,9 +284,9 @@ python import_excel.py --folder ../uploads/Archive
 - ✅ Anotações associadas a cada utilizador
 
 **Login como anotador** (dados importados):
-- Email: `joao@research.pt` / Password: `password`
-- Email: `maria@research.pt` / Password: `password`
-- Email: `pedro@research.pt` / Password: `password`
+- Username: `joao` / Password: `password`
+- Username: `maria` / Password: `password`
+- Username: `pedro` / Password: `password`
 
 #### 5. Testar Funcionalidades com Dados Reais
 
@@ -347,7 +346,7 @@ python import_excel.py --folder ../uploads/Archive
 ✅ chat_estudo_principal.xlsx
    Chat room ID: 12
    Chat room: "Estudo Principal - Multi-Annotator Study (4 annotators)"
-   Users created: 4 (joao@research.pt, maria@research.pt, pedro@research.pt, ana@research.pt)
+   Users created: 4 (joao, maria, pedro, ana)
    Messages: 100
    Annotations: 320
    Annotators: joao, maria, pedro, ana
@@ -355,14 +354,14 @@ python import_excel.py --folder ../uploads/Archive
 ✅ chat_piloto.xlsx
    Chat room ID: 13
    Chat room: "Piloto - Multi-Annotator Study (2 annotators)"
-   Users created: 2 (bruno@research.pt, carla@research.pt)
+   Users created: 2 (bruno, carla)
    Messages: 50
    Annotations: 130
    Annotators: bruno, carla
 
 🎯 READY FOR TESTING:
-- Login admin: admin@example.com / admin
-- Login anotadores: [nome]@research.pt / password
+- Login admin: admin / admin
+- Login anotadores: [nome] / password
 - URL: http://localhost:3721
 - Métricas IAA disponíveis para análise
 ```
@@ -397,7 +396,7 @@ ANNOTATOR_PATTERNS = [
 ```yaml
 api:
   base_url: "http://localhost:8000"
-  admin_email: "admin@example.com"
+  admin_username: "admin"
   admin_password: "admin"
 
 project:
@@ -409,7 +408,6 @@ project:
   last_used_project_id: null
 
 import:
-  email_domain: "research.pt"
   default_user_password: "ChangeMe123!"
   auto_confirm: false
 
@@ -427,7 +425,7 @@ output:
 O sistema suporta configuração via variáveis de ambiente para ambientes de produção:
 ```bash
 export API_BASE_URL="https://api.production.com"
-export API_ADMIN_EMAIL="admin@company.com"
+export API_admin_username="admin"
 export API_ADMIN_PASSWORD="secure_password"
 ```
 
@@ -483,7 +481,7 @@ O script guia o utilizador através de um processo interactivo:
    • VAC_R10.xlsx
 
 🔑 Autenticating with API...
-✅ Successfully authenticated as admin@example.com
+✅ Successfully authenticated as admin
 
 📋 Project Selection:
    1. Chat Disentanglement Study (ID: 1)
@@ -503,10 +501,10 @@ Continue with import? [y/N]: y
 
 🔄 Processing AMO_R01.xlsx...
    📖 Parsing Excel file...
-   👥 Creating users: joao@research.pt, pedro@research.pt...
+   👥 Creating users: joao, pedro...
    🏠 Creating chat room: AMO_R01 - Multi-Annotator Study
    📤 Uploading messages (160 messages)...
-   🏷️ Importing annotations for joao@research.pt (234 annotations)...
+   🏷️ Importing annotations for joao (234 annotations)...
    ✅ Completed in 12.3s
 
 ✅ Import completed successfully!

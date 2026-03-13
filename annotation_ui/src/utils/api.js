@@ -61,9 +61,9 @@ api.interceptors.response.use(
 
 // Auth endpoints
 export const auth = {
-    login: async (email, password) => {
+    login: async (username, password) => {
         const formData = new URLSearchParams();
-        formData.append('username', email);
+        formData.append('username', username);
         formData.append('password', password);
         
         const response = await api.post('/auth/token', formData, {
@@ -199,11 +199,27 @@ export const projects = {
         const response = await api.get(`/projects/${projectId}/chat-rooms/${roomId}`);
         return response.data;
     },
-    getChatMessages: async (projectId, roomId, skip = 0, limit = 100) => {
-        const response = await api.get(`/projects/${projectId}/chat-rooms/${roomId}/messages`, {
-            params: { skip, limit }
-        });
-        return response.data;
+    getChatMessages: async (projectId, roomId) => {
+        const pageSize = 200;
+        let skip = 0;
+        let allMessages = [];
+        let total = 0;
+
+        while (true) {
+            const response = await api.get(`/projects/${projectId}/chat-rooms/${roomId}/messages`, {
+                params: { skip, limit: pageSize }
+            });
+            const data = response.data;
+            const page = data.messages || [];
+            allMessages = allMessages.concat(page);
+            total = typeof data.total === 'number' ? data.total : allMessages.length;
+            skip += page.length;
+            if (page.length === 0 || allMessages.length >= total) {
+                break;
+            }
+        }
+
+        return { messages: allMessages, total };
     },
     getChatRoomCompletion: async (projectId, roomId) => {
         const response = await api.get(`/projects/${projectId}/chat-rooms/${roomId}/completion`);

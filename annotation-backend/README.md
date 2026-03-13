@@ -30,7 +30,7 @@ A flexible backend system for text annotation tasks, with chat disentanglement a
    ```env
    DATABASE_URL=sqlite+aiosqlite:///./annotation.db
    SECRET_KEY=your-secret-key-here
-   FIRST_ADMIN_EMAIL=admin@example.com
+   FIRST_ADMIN_USERNAME=admin
    FIRST_ADMIN_PASSWORD=change-this-password
    ```
 

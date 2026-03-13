@@ -308,7 +308,7 @@ def get_chat_room(
     
     return chat_room
 
-@router.get("/{project_id}/chat-rooms/{room_id}/messages", response_model=List[ChatMessageSchema], tags=["chat rooms"])
+@router.get("/{project_id}/chat-rooms/{room_id}/messages", response_model=MessageList, tags=["chat rooms"])
 def get_chat_messages(
     project_id: int,
     room_id: int,
@@ -342,11 +342,13 @@ def get_chat_messages(
         raise HTTPException(status_code=404, detail=f"Chat room with id {room_id} not found in project {project_id}")
     
     # Get messages from the specific chat room
-    messages = db.query(ChatMessage).filter(
+    base_query = db.query(ChatMessage).filter(
         ChatMessage.chat_room_id == room_id
-    ).order_by(ChatMessage.created_at).offset(skip).limit(limit).all() # Added ordering
+    )
+    total = base_query.count()
+    messages = base_query.order_by(ChatMessage.created_at).offset(skip).limit(limit).all()
     
-    return messages 
+    return MessageList(messages=messages, total=total)
 
 @router.get("/{project_id}/chat-rooms/{room_id}/annotations", response_model=List[AnnotationSchema], tags=["annotations"])
 def get_chat_room_annotations(
@@ -385,9 +387,9 @@ def get_chat_room_annotations(
 
     # Manually construct the response to match the schema
     result = []
-    for annotation, annotator_email in annotations_data:
+    for annotation, annotator_username in annotations_data:
         annotation_dict = annotation.__dict__
-        annotation_dict['annotator_email'] = annotator_email
+        annotation_dict['annotator_username'] = annotator_username
         result.append(annotation_dict)
 
     return result 

@@ -8,18 +8,18 @@ const SCREENSHOTS_DIR = './sitemap_screenshots';
 
 // --- User Credentials ---
 const ADMIN_USER = {
-  email: 'admin@example.com',
+  username: 'admin',
   password: 'admin'
 };
 const ANNOTATOR_USER = {
-  email: 'anotaozuil@research.pt',
+  username: 'anotaozuil',
   password: 'ChangeMe123!'
 };
 
 // Helper function to log in a user and return the page
 const login = async (page, user) => {
   await page.goto(`${BASE_URL}/login`);
-  await page.locator('input[type="email"]').fill(user.email);
+  await page.locator('input#username').fill(user.username);
   await page.locator('input[type="password"]').fill(user.password);
   await page.locator('button[type="submit"]').click();
   // Wait for navigation to complete after login

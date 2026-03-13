@@ -134,16 +134,15 @@ def create_initial_config() -> Dict[str, Any]:
     # Get API details
     print("📡 API Configuration:")
     api_url = input("  API URL [http://localhost:8000]: ").strip() or "http://localhost:8000"
-    admin_email = input("  Admin email [admin@example.com]: ").strip() or "admin@example.com"
+    admin_username = input("  Admin username [admin]: ").strip() or "admin"
     admin_password = input("  Admin password [admin123]: ").strip() or "admin123"
     
     print("\n📋 Import Configuration:")
-    email_domain = input("  Email domain for users [research.pt]: ").strip() or "research.pt"
     
     config = {
         "api": {
             "base_url": api_url,
-            "admin_email": admin_email,
+            "admin_username": admin_username,
             "admin_password": admin_password
         },
         "project": {
@@ -156,7 +155,6 @@ def create_initial_config() -> Dict[str, Any]:
             "last_used_project_id": None
         },
         "import": {
-            "email_domain": email_domain,
             "default_user_password": "ChangeMe123!",
             "auto_confirm": False
         }
@@ -325,7 +323,7 @@ def manage_project_selection(api_client: AnnotationAPIClient, config: Dict[str, 
         print(f"❌ Error fetching projects: {e}")
         print("\n🔍 Debugging information:")
         print(f"   API URL: {api_client.base_url}")
-        print(f"   Admin email: {api_client.admin_email}")
+        print(f"   Admin username: {api_client.admin_username}")
         print("   Endpoint: /admin/projects")
         print("\n💡 Please verify:")
         print("   • Backend server is running")
@@ -409,9 +407,7 @@ def perform_import(api_client: AnnotationAPIClient, excel_files: List[str], proj
     
     try:
         # Initialize the data transformer
-        transformer = ChatRoomDataTransformer(
-            default_email_domain=config.get("import", {}).get("email_domain", "research.pt")
-        )
+        transformer = ChatRoomDataTransformer()
         
         # Initialize the batch import manager
         batch_manager = BatchExcelImportManager(
@@ -526,7 +522,7 @@ def main():
     try:
         api_client = AnnotationAPIClient(
             base_url=config["api"]["base_url"],
-            admin_email=config["api"]["admin_email"],
+            admin_username=config["api"]["admin_username"],
             admin_password=config["api"]["admin_password"]
         )
         

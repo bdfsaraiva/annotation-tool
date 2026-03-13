@@ -46,7 +46,7 @@ const IAAMatrix = ({ pairwiseAccuracies, annotators }) => {
                         {annotators.map(annotator => (
                             <th key={annotator.id} className="matrix-header">
                                 <div className="annotator-header">
-                                    <span className="annotator-name">{annotator.email}</span>
+                                    <span className="annotator-name">{annotator.username}</span>
                                 </div>
                             </th>
                         ))}
@@ -57,7 +57,7 @@ const IAAMatrix = ({ pairwiseAccuracies, annotators }) => {
                         <tr key={rowAnnotator.id}>
                             <td className="matrix-row-header">
                                 <div className="annotator-header">
-                                    <span className="annotator-name">{rowAnnotator.email}</span>
+                                    <span className="annotator-name">{rowAnnotator.username}</span>
                                 </div>
                             </td>
                             {annotators.map(colAnnotator => {
@@ -76,9 +76,9 @@ const IAAMatrix = ({ pairwiseAccuracies, annotators }) => {
                                         }}
                                         title={
                                             isSelf 
-                                                ? `${rowAnnotator.email} (self)`
+                                                ? `${rowAnnotator.username} (self)`
                                                 : accuracy !== null 
-                                                    ? `${rowAnnotator.email} vs ${colAnnotator.email}: ${accuracy.toFixed(1)}%`
+                                                    ? `${rowAnnotator.username} vs ${colAnnotator.username}: ${accuracy.toFixed(1)}%`
                                                     : 'No data available'
                                         }
                                     >

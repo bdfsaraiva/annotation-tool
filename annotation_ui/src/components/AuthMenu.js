@@ -29,7 +29,7 @@ const AuthMenu = ({ theme, toggleTheme }) => {
         <div className="auth-menu">
             {isAuthenticated && currentUser ? (
                 <>
-                    <span className="user-email">{currentUser.email}</span>
+                    <span className="user-email">{currentUser.username}</span>
                     <button onClick={logout} className="auth-button">Logout</button>
                 </>
             ) : (

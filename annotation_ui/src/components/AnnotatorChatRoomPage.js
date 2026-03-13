@@ -148,7 +148,7 @@ const AnnotatorChatRoomPage = () => {
         };
       }
       newThreadDetails[annotation.thread_id].messages.push(annotation.message_id);
-      newThreadDetails[annotation.thread_id].annotators.add(annotation.annotator_email);
+        newThreadDetails[annotation.thread_id].annotators.add(annotation.annotator_username);
       newThreadDetails[annotation.thread_id].annotations.push(annotation);
     });
 
@@ -185,7 +185,7 @@ const AnnotatorChatRoomPage = () => {
       if (!annotatorsPerThread[threadId]) {
         annotatorsPerThread[threadId] = new Set();
       }
-      annotatorsPerThread[threadId].add(annotation.annotator_email);
+        annotatorsPerThread[threadId].add(annotation.annotator_username);
     });
 
     // Convert sets to counts
@@ -277,7 +277,7 @@ const AnnotatorChatRoomPage = () => {
 
       const requests = [
         projectsApi.getChatRoom(projectId, roomId),
-        projectsApi.getChatMessages(projectId, roomId, 0, 1000),
+        projectsApi.getChatMessages(projectId, roomId),
         auth.getCurrentUser(),
         projectsApi.getChatRoomCompletion(projectId, roomId)
       ];
@@ -288,9 +288,10 @@ const AnnotatorChatRoomPage = () => {
         requests.push(annotationsApi.getChatRoomAnnotations(projectId, roomId));
       }
 
-      const [chatRoomData, messagesData, userData, completionData, thirdPayload] = await Promise.all(requests);
+      const [chatRoomData, messagesResponse, userData, completionData, thirdPayload] = await Promise.all(requests);
       
       setChatRoomName(chatRoomData?.name || '');
+      const messagesData = messagesResponse.messages || [];
       setMessages(messagesData);
       setCurrentUser(userData);
       setIsCompleted(Boolean(completionData?.is_completed));
@@ -303,7 +304,7 @@ const AnnotatorChatRoomPage = () => {
         setThreadColors({});
         setStatistics((prev) => ({
           ...prev,
-          totalMessages: messagesData.length
+          totalMessages: messagesResponse.total ?? messagesData.length
         }));
       } else {
         processAnnotations(thirdPayload);
@@ -960,7 +961,7 @@ const AnnotatorChatRoomPage = () => {
                     message={message}
                     annotations={messageAnnotations}
                     existingThreads={allThreads}
-                    currentUserEmail={currentUser?.email}
+                    currentUserUsername={currentUser?.username}
                     onAnnotationCreate={(threadName) => handleCreateAnnotation(message.id, threadName)}
                     onAnnotationDelete={(annotationId) => handleDeleteAnnotation(message.id, annotationId)}
                     isAnnotating={isSubmitting}

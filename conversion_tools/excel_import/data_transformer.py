@@ -39,7 +39,7 @@ class AnnotationCreate:
 @dataclass
 class UserCreate:
     """Schema for creating users."""
-    email: str
+    username: str
     name: str
     password: str = "password"
     is_admin: bool = False
@@ -53,34 +53,36 @@ class ChatRoomDataTransformer:
     that can be used with the annotation API.
     """
     
-    def __init__(self, default_email_domain: str = "research.pt"):
+    def __init__(self, min_username_length: int = 3):
         """
         Initialize the transformer.
         
         Args:
-            default_email_domain: Domain to use for generated email addresses
+            min_username_length: Minimum username length to enforce
         """
-        self.default_email_domain = default_email_domain
+        self.min_username_length = max(3, min_username_length)
     
-    def generate_user_email(self, annotator_name: str) -> str:
+    def generate_username(self, annotator_name: str) -> str:
         """
-        Generate email address from annotator name.
+        Generate a username from annotator name.
         
         Args:
             annotator_name: Name of the annotator
             
         Returns:
-            Generated email address
+            Generated username
         """
         # Clean the name: remove special characters, convert to lowercase
         clean_name = re.sub(r'[^a-zA-Z0-9]', '', annotator_name.lower())
         
-        # Ensure it's not empty
-        if not clean_name:
-            clean_name = f"annotator{hash(annotator_name) % 10000}"
+        # Ensure minimum length
+        if len(clean_name) < self.min_username_length:
+            suffix = abs(hash(annotator_name)) % 10000
+            clean_name = f"user{suffix}"
+            if len(clean_name) < self.min_username_length:
+                clean_name = "user"
         
-        # Generate clean email without prefix
-        return f"{clean_name}@{self.default_email_domain}"
+        return clean_name
     
     def generate_user_display_name(self, annotator_name: str) -> str:
         """
@@ -171,7 +173,7 @@ class ChatRoomDataTransformer:
             UserCreate schema
         """
         return UserCreate(
-            email=self.generate_user_email(annotator_name),
+            username=self.generate_username(annotator_name),
             name=self.generate_user_display_name(annotator_name),
             password="password",  # Simple default password for testing
             is_admin=False
@@ -242,7 +244,7 @@ class ChatRoomDataTransformer:
             
             # Get annotations for this user
             annotations = self.excel_to_annotations_schema(sheet_data)
-            annotations_by_user[user.email] = annotations
+            annotations_by_user[user.username] = annotations
         
         return {
             "chat_room": chat_room,
@@ -377,26 +379,26 @@ class ChatRoomDataTransformer:
         if not users:
             errors.append("At least one user is required")
         
-        emails = set()
+        usernames = set()
         for user in users:
-            if not user.email:
-                errors.append("All users must have email")
-            elif user.email in emails:
-                errors.append(f"Duplicate email: {user.email}")
+            if not user.username:
+                errors.append("All users must have username")
+            elif user.username in usernames:
+                errors.append(f"Duplicate username: {user.username}")
             else:
-                emails.add(user.email)
+                usernames.add(user.username)
         
         # Validate annotations
         annotations_by_user = import_data['annotations_by_user']
-        for user_email, annotations in annotations_by_user.items():
+        for username, annotations in annotations_by_user.items():
             for annotation in annotations:
                 if not annotation.turn_id:
-                    errors.append(f"Invalid annotation for {user_email}: missing turn_id")
+                    errors.append(f"Invalid annotation for {username}: missing turn_id")
                 elif annotation.turn_id not in turn_ids:
-                    errors.append(f"Invalid annotation for {user_email}: turn_id '{annotation.turn_id}' not found in messages")
+                    errors.append(f"Invalid annotation for {username}: turn_id '{annotation.turn_id}' not found in messages")
                 
                 if not annotation.thread_id:
-                    errors.append(f"Invalid annotation for {user_email}: missing thread_id")
+                    errors.append(f"Invalid annotation for {username}: missing thread_id")
         
         return errors
     
@@ -414,12 +416,12 @@ class ChatRoomDataTransformer:
         
         # Calculate annotation statistics
         annotation_stats = {}
-        for user_email, annotations in import_data['annotations_by_user'].items():
+        for username, annotations in import_data['annotations_by_user'].items():
             thread_counts = {}
             for annotation in annotations:
                 thread_id = annotation.thread_id
                 thread_counts[thread_id] = thread_counts.get(thread_id, 0) + 1
-            annotation_stats[user_email] = {
+            annotation_stats[username] = {
                 "total_annotations": len(annotations),
                 "unique_threads": len(thread_counts),
                 "thread_distribution": thread_counts
@@ -431,6 +433,6 @@ class ChatRoomDataTransformer:
             "total_users": len(import_data['users']),
             "total_messages": len(import_data['messages']),
             "total_annotations": total_annotations,
-            "users": [user.email for user in import_data['users']],
+            "users": [user.username for user in import_data['users']],
             "annotation_stats": annotation_stats
         } 

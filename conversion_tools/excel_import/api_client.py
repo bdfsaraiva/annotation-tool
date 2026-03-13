@@ -29,18 +29,18 @@ class AnnotationAPIClient:
     and data import functionality.
     """
     
-    def __init__(self, base_url: str, admin_email: str, admin_password: str, timeout: int = 30):
+    def __init__(self, base_url: str, admin_username: str, admin_password: str, timeout: int = 30):
         """
         Initialize the API client.
         
         Args:
             base_url: Base URL of the API
-            admin_email: Admin email for authentication
+            admin_username: Admin username for authentication
             admin_password: Admin password for authentication
             timeout: Request timeout in seconds
         """
         self.base_url = base_url.rstrip('/')
-        self.admin_email = admin_email
+        self.admin_username = admin_username
         self.admin_password = admin_password
         self.timeout = timeout
         self.access_token = None
@@ -118,7 +118,7 @@ class AnnotationAPIClient:
             APIError: If authentication fails
         """
         login_data = {
-            "username": self.admin_email,
+            "username": self.admin_username,
             "password": self.admin_password
         }
         
@@ -142,7 +142,7 @@ class AnnotationAPIClient:
                     'Authorization': f'Bearer {self.access_token}'
                 })
                 
-                logger.info(f"Successfully authenticated as {self.admin_email}")
+                logger.info(f"Successfully authenticated as {self.admin_username}")
                 return self.access_token
             else:
                 raise APIError(f"Authentication failed: {response.text}")
@@ -152,12 +152,12 @@ class AnnotationAPIClient:
         except Exception as e:
             raise APIError(f"Authentication error: {str(e)}")
     
-    def create_or_get_user(self, email: str, name: str, password: str = "ChangeMe123!") -> int:
+    def create_or_get_user(self, username: str, name: str, password: str = "ChangeMe123!") -> int:
         """
         Create a new user or get existing user ID.
         
         Args:
-            email: User email
+            username: Username
             name: User display name
             password: User password (default temporary password)
             
@@ -173,15 +173,15 @@ class AnnotationAPIClient:
             if response.status_code == 200:
                 users = response.json()
                 for user in users:
-                    if user['email'] == email:
-                        logger.info(f"User already exists: {email} (ID: {user['id']})")
+                    if user['username'] == username:
+                        logger.info(f"User already exists: {username} (ID: {user['id']})")
                         return user['id']
         except Exception:
             pass  # Continue to create user
         
         # Create new user
         user_data = {
-            "email": email,
+            "username": username,
             "password": password,
             "is_admin": False
         }
@@ -192,15 +192,15 @@ class AnnotationAPIClient:
             if response.status_code in [200, 201]:
                 user = response.json()
                 user_id = user['id']
-                logger.info(f"Created user: {email} (ID: {user_id})")
+                logger.info(f"Created user: {username} (ID: {user_id})")
                 return user_id
             else:
-                raise APIError(f"Failed to create user {email}: {response.text}")
+                raise APIError(f"Failed to create user {username}: {response.text}")
                 
         except APIError:
             raise
         except Exception as e:
-            raise APIError(f"Error creating user {email}: {str(e)}")
+            raise APIError(f"Error creating user {username}: {str(e)}")
     
     def assign_user_to_project(self, project_id: int, user_id: int) -> bool:
         """
@@ -569,26 +569,26 @@ class AnnotationAPIClient:
     
     def batch_create_users(self, users_data: List[Dict[str, str]]) -> Dict[str, int]:
         """
-        Create multiple users and return email -> user_id mapping.
+        Create multiple users and return username -> user_id mapping.
         
         Args:
             users_data: List of user data dictionaries
             
         Returns:
-            Dictionary mapping email to user ID
+            Dictionary mapping username to user ID
         """
         user_mapping = {}
         
         for user_data in users_data:
             try:
                 user_id = self.create_or_get_user(
-                    email=user_data['email'],
+                    username=user_data['username'],
                     name=user_data['name'],
                     password=user_data.get('password', "ChangeMe123!")
                 )
-                user_mapping[user_data['email']] = user_id
+                user_mapping[user_data['username']] = user_id
             except APIError as e:
-                logger.error(f"Failed to create user {user_data['email']}: {e}")
+                logger.error(f"Failed to create user {user_data['username']}: {e}")
                 # Continue with other users
                 continue
         

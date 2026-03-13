@@ -19,31 +19,34 @@ const AdminChatRoomView = () => {
         setError('');
         try {
             // Fetch all required data
-            const [chatRoomData, messagesData, usersData] = await Promise.all([
+            const [chatRoomData, messagesResponse, usersData] = await Promise.all([
                 projectsApi.getChatRoom(projectId, roomId),
                 projectsApi.getChatMessages(projectId, roomId),
                 projectsApi.getProjectUsers(projectId)
             ]);
             
             setChatRoom(chatRoomData);
+            const messagesData = messagesResponse.messages || [];
             setMessages(messagesData);
             setAssignedUsers(usersData);
 
-            // Fetch annotations for each message
+            // Fetch annotations for the whole chat room (admin gets all)
             const annotationsData = {};
-            for (const message of messagesData) {
-                try {
-                    const annotations = await annotationsApi.getMessageAnnotations(projectId, message.id);
-                    annotationsData[message.id] = annotations;
-                } catch (err) {
-                    console.error(`Failed to fetch annotations for message ${message.id}:`, err);
-                    annotationsData[message.id] = [];
-                }
+            try {
+                const allAnnotations = await annotationsApi.getChatRoomAnnotations(projectId, roomId);
+                allAnnotations.forEach((ann) => {
+                    if (!annotationsData[ann.message_id]) {
+                        annotationsData[ann.message_id] = [];
+                    }
+                    annotationsData[ann.message_id].push(ann);
+                });
+            } catch (err) {
+                console.error("Failed to fetch annotations for chat room:", err);
             }
             setMessageAnnotations(annotationsData);
 
             // Calculate simple stats
-            const totalMessages = messagesData.length;
+            const totalMessages = messagesResponse.total ?? messagesData.length;
             const totalUsers = usersData.length;
             let annotatedMessages = 0;
             let totalAnnotations = 0;
@@ -81,12 +84,12 @@ const AdminChatRoomView = () => {
 
     const getUsersWhoAnnotated = (messageId) => {
         const annotations = messageAnnotations[messageId] || [];
-        return [...new Set(annotations.map(ann => ann.annotator_email))];
+        return [...new Set(annotations.map(ann => ann.annotator_username))];
     };
 
     const getUsersWhoDidntAnnotate = (messageId) => {
         const annotatedUsers = getUsersWhoAnnotated(messageId);
-        return assignedUsers.filter(user => !annotatedUsers.includes(user.email));
+        return assignedUsers.filter(user => !annotatedUsers.includes(user.username));
     };
 
     if (loading) return <div className="loading-container">Loading chat room...</div>;
@@ -129,8 +132,8 @@ const AdminChatRoomView = () => {
                 <div className="annotators-grid">
                     {assignedUsers.map(user => (
                         <div key={user.id} className="annotator-profile">
-                            <span className="profile-name">{user.email.split('@')[0]}</span>
-                            <span className="profile-email">{user.email}</span>
+                            <span className="profile-name">{user.username}</span>
+                            <span className="profile-email">{user.username}</span>
                             <span className="profile-id">ID: {user.id}</span>
                         </div>
                     ))}
@@ -166,14 +169,14 @@ const AdminChatRoomView = () => {
                                 <div className="annotators-section">
                                     {annotatedUsers.length > 0 ? (
                                         <div className="annotated-by">
-                                            {annotatedUsers.map(userEmail => {
-                                                const userAnnotations = annotations.filter(ann => ann.annotator_email === userEmail);
+                                            {annotatedUsers.map(username => {
+                                                const userAnnotations = annotations.filter(ann => ann.annotator_username === username);
                                                 const threadIds = userAnnotations.map(ann => ann.thread_id).join(', ');
-                                                const userName = userEmail.split('@')[0];
+                                                const userName = username;
                                                 
                                                 return (
-                                                    <div key={userEmail} className="annotator-item">
-                                                        <span className="annotator-name" title={userEmail}>
+                                                    <div key={username} className="annotator-item">
+                                                        <span className="annotator-name" title={username}>
                                                             {userName}
                                                         </span>
                                                         <span className="thread-info">
@@ -194,8 +197,8 @@ const AdminChatRoomView = () => {
                                             <span className="missing-label">Pending:</span>
                                             <div className="missing-users-compact">
                                                 {missingUsers.map(user => (
-                                                    <span key={user.id} className="missing-tag" title={user.email}>
-                                                        {user.email.split('@')[0]}
+                                                    <span key={user.id} className="missing-tag" title={user.username}>
+                                                        {user.username}
                                                     </span>
                                                 ))}
                                             </div>

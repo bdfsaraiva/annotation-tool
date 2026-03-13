@@ -85,7 +85,7 @@
 }
 
 .admin-dashboard .form-container input[type="text"],
-.admin-dashboard .form-container input[type="email"],
+.admin-dashboard .form-container input[type="text"],
 .admin-dashboard .form-container input[type="password"],
 .admin-dashboard .form-container textarea {
     width: 100%;
@@ -282,7 +282,7 @@
   color: var(--text-color-primary);
 }
 
-.form-field input[type="email"],
+.form-field input[type="text"],
 .form-field input[type="password"] {
   width: 100%;
   padding: 0.75rem;

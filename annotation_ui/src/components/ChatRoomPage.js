@@ -31,7 +31,8 @@ const ChatRoomPage = () => {
       setChatRoom(chatRoomData);
 
       // Fetch messages
-      const messagesData = await projects.getChatMessages(projectId, chatRoomId);
+      const messagesResponse = await projects.getChatMessages(projectId, chatRoomId);
+      const messagesData = messagesResponse.messages || [];
       setMessages(messagesData);
 
       // Fetch annotations for all messages
@@ -54,13 +55,13 @@ const ChatRoomPage = () => {
             newThreadTags[annotation.thread_id] = {
               id: annotation.thread_id,
               message_count: 1,
-              annotators: new Set([annotation.annotator_email]),
+              annotators: new Set([annotation.annotator_username]),
               tags: [],
               created_at: annotation.created_at
             };
           } else {
             newThreadTags[annotation.thread_id].message_count++;
-            newThreadTags[annotation.thread_id].annotators.add(annotation.annotator_email);
+            newThreadTags[annotation.thread_id].annotators.add(annotation.annotator_username);
           }
         });
       });

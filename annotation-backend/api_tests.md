@@ -6,7 +6,7 @@ This document outlines the successful API tests performed for the annotation fun
 
 Before running these tests, ensure you have the following:
 - A running instance of the annotation backend (e.g., `http://localhost:8000`)
-- User credentials (email/password). The `FIRST_ADMIN_EMAIL` and `FIRST_ADMIN_PASSWORD` from your `.env` can be used initially.
+- User credentials (username/password). The `FIRST_ADMIN_USERNAME` and `FIRST_ADMIN_PASSWORD` from your `.env` can be used initially.
 - `jq` installed for formatting JSON responses.
 - Environment variables set for subsequent steps (these are typically obtained from previous steps):
   - `ADMIN_TOKEN`: Token obtained after admin login.
@@ -22,14 +22,14 @@ Before running these tests, ensure you have the following:
 
 **Command (Admin Example)**:
 ```bash
-# Replace with your actual admin email and password
-ADMIN_EMAIL="admin@example.com"
+# Replace with your actual admin username and password
+ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="change-this-password"
 
 # Run the login command and capture the token
 ADMIN_TOKEN=$(curl -X POST "http://localhost:8000/auth/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=$ADMIN_EMAIL&password=$ADMIN_PASSWORD" | jq -r .access_token)
+  -d "username=$ADMIN_USERNAME&password=$ADMIN_PASSWORD" | jq -r .access_token)
 
 echo "Admin Token: $ADMIN_TOKEN"
 ```
@@ -38,13 +38,13 @@ echo "Admin Token: $ADMIN_TOKEN"
 
 **(Optional) Regular User Login**:
 ```bash
-# Replace with your regular user email and password
-USER_EMAIL="user@example.com"
+# Replace with your regular user username and password
+USER_USERNAME="user"
 USER_PASSWORD="userpassword"
 
 USER_TOKEN=$(curl -X POST "http://localhost:8000/auth/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=$USER_EMAIL&password=$USER_PASSWORD" | jq -r .access_token)
+  -d "username=$USER_USERNAME&password=$USER_PASSWORD" | jq -r .access_token)
 
 echo "User Token: $USER_TOKEN"
 ```
@@ -163,7 +163,7 @@ curl -X GET "http://localhost:8000/projects/$PROJECT_ID/messages/$MESSAGE_ID/ann
 
 ## Notes
 
-- Replace placeholder values (like emails, passwords, project names, file paths) with your actual data.
+- Replace placeholder values (like usernames, passwords, project names, file paths) with your actual data.
 - Use the token obtained from the login step (`ADMIN_TOKEN` or `USER_TOKEN`) for authorized requests.
 - The `PROJECT_ID` obtained from project creation is needed for subsequent project-specific calls.
 - The `MESSAGE_ID` needs to be identified after data import before creating annotations.

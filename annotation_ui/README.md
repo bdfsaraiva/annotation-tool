@@ -235,11 +235,10 @@ Editar `config.yaml`:
 ```yaml
 api:
   base_url: "http://localhost:8000"  # Ou IP do servidor
-  admin_email: "admin@example.com"
+  admin_username: "admin"
   admin_password: "admin"
 
 import:
-  email_domain: "research.pt"
   default_user_password: "password"  # Password simplificada
 ```
 
@@ -255,7 +254,7 @@ python import_excel.py
 3. **Seleção/criação** de projeto
 4. **Importação completa**:
    - Criação de chat rooms
-   - Criação de utilizadores (emails simplificados: `joao@research.pt`)
+   - Criação de utilizadores (usernames simplificados: `joao`)
    - Importação de mensagens
    - Importação de anotações de cada anotador
 5. **Relatório detalhado** dos resultados
@@ -263,7 +262,7 @@ python import_excel.py
 ### Resultados da Importação
 
 Após importação bem-sucedida:
-- **Utilizadores criados** com emails limpos (ex: `maria@research.pt`)
+- **Utilizadores criados** com usernames limpos (ex: `maria`)
 - **Passwords simples**: `password`
 - **Chat rooms** com mensagens importadas
 - **Anotações** associadas a cada utilizador
@@ -274,17 +273,17 @@ Após importação bem-sucedida:
 ## 🔑 Credenciais de Acesso
 
 ### Utilizador Administrador (pré-configurado)
-- **Email**: `admin@example.com`
+- **Username**: `admin`
 - **Password**: `admin`
 
 ### Utilizadores Importados (via conversion tools)
-- **Formato email**: `[nome_anotador]@research.pt`
+- **Formato Username**: `[nome_anotador]`
 - **Password**: `password`
 
 **Exemplos após importação:**
-- `joao@research.pt` / `password`
-- `maria@research.pt` / `password`
-- `pedro@research.pt` / `password`
+- `joao` / `password`
+- `maria` / `password`
+- `pedro` / `password`
 
 ---
 
@@ -366,8 +365,8 @@ Após importação bem-sucedida:
 
 **Solução**:
 1. Usar credenciais correctas:
-   - Admin: `admin@example.com` / `admin`
-   - Importados: `[nome]@research.pt` / `password`
+   - Admin: `admin` / `admin`
+   - Importados: `[nome]` / `password`
 
 ### Logs e Debug
 

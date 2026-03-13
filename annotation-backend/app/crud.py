@@ -6,20 +6,21 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from itertools import combinations
 from datetime import datetime
+import secrets
 
 # User CRUD operations
 def get_user(db: Session, user_id: int) -> Optional[models.User]:
     return db.query(models.User).filter(models.User.id == user_id).first()
 
-def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
-    return db.query(models.User).filter(models.User.email == email).first()
+def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.username == username).first()
 
 def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[models.User]:
     return db.query(models.User).offset(skip).limit(limit).all()
 
 def create_user(db: Session, user: schemas.UserCreate, hashed_password: str) -> models.User:
     db_user = models.User(
-        email=user.email,
+        username=user.username,
         hashed_password=hashed_password,
         is_admin=user.is_admin
     )
@@ -34,8 +35,8 @@ def delete_user(db: Session, user: models.User) -> None:
     db.commit()
 
 def update_user(db: Session, user: models.User, updates: schemas.UserUpdate, hashed_password: Optional[str] = None) -> models.User:
-    if updates.email is not None:
-        user.email = updates.email
+    if updates.username is not None:
+        user.username = updates.username
     if updates.is_admin is not None:
         user.is_admin = updates.is_admin
     if hashed_password is not None:
@@ -109,10 +110,10 @@ def get_annotations_for_chat_room(
 ) -> List[Tuple[models.Annotation, str]]:
     """
     Fetches all annotations for a given chat room, returning a tuple
-    of the Annotation object and the annotator's email.
+    of the Annotation object and the annotator's username.
     """
     return (
-        db.query(models.Annotation, models.User.email)
+        db.query(models.Annotation, models.User.username)
         .join(models.ChatMessage, models.Annotation.message_id == models.ChatMessage.id)
         .join(models.User, models.Annotation.annotator_id == models.User.id)
         .filter(models.ChatMessage.chat_room_id == chat_room_id)
@@ -127,10 +128,10 @@ def get_annotations_for_chat_room_by_annotator(
     """
     Fetches annotations for a given chat room filtered by a specific annotator.
     This ensures annotators only see their own annotations (Pillar 1).
-    Returns a tuple of the Annotation object and the annotator's email.
+    Returns a tuple of the Annotation object and the annotator's username.
     """
     return (
-        db.query(models.Annotation, models.User.email)
+        db.query(models.Annotation, models.User.username)
         .join(models.ChatMessage, models.Annotation.message_id == models.ChatMessage.id)
         .join(models.User, models.Annotation.annotator_id == models.User.id)
         .filter(
@@ -146,10 +147,10 @@ def get_all_annotations_for_chat_room_admin(
     """
     Fetches ALL annotations for a given chat room (admin-only function).
     This allows administrators to see annotations from all users (Pillar 1).
-    Returns a tuple of the Annotation object and the annotator's email.
+    Returns a tuple of the Annotation object and the annotator's username.
     """
     return (
-        db.query(models.Annotation, models.User.email)
+        db.query(models.Annotation, models.User.username)
         .join(models.ChatMessage, models.Annotation.message_id == models.ChatMessage.id)
         .join(models.User, models.Annotation.annotator_id == models.User.id)
         .filter(models.ChatMessage.chat_room_id == chat_room_id)
@@ -172,7 +173,7 @@ def create_chat_message(db: Session, message: schemas.ChatMessageCreate, chat_ro
         chat_room_id=chat_room_id
     )
     db.add(db_message)
-    db.commit()
+    db.flush()
     db.refresh(db_message)
     return db_message
 
@@ -193,11 +194,20 @@ def get_annotations_by_message(db: Session, message_id: int) -> List[models.Anno
 def get_annotations_by_annotator(db: Session, annotator_id: int) -> List[models.Annotation]:
     return db.query(models.Annotation).filter(models.Annotation.annotator_id == annotator_id).all()
 
-def create_annotation(db: Session, annotation: schemas.AnnotationCreate) -> models.Annotation:
+def create_annotation(
+    db: Session,
+    annotation: schemas.AnnotationCreate,
+    annotator_id: Optional[int] = None,
+    project_id: Optional[int] = None
+) -> models.Annotation:
+    resolved_annotator_id = annotator_id or getattr(annotation, "annotator_id", None)
+    resolved_project_id = project_id or getattr(annotation, "project_id", None)
+    if resolved_annotator_id is None or resolved_project_id is None:
+        raise HTTPException(status_code=400, detail="Missing annotator_id or project_id")
     db_annotation = models.Annotation(
         message_id=annotation.message_id,
-        annotator_id=annotation.annotator_id,
-        project_id=annotation.project_id,
+        annotator_id=resolved_annotator_id,
+        project_id=resolved_project_id,
         thread_id=annotation.thread_id
     )
     db.add(db_annotation)
@@ -213,7 +223,7 @@ def get_adjacency_pairs_for_chat_room_by_annotator(
     db: Session, chat_room_id: int, annotator_id: int
 ) -> List[Tuple[models.AdjacencyPair, str]]:
     return (
-        db.query(models.AdjacencyPair, models.User.email)
+        db.query(models.AdjacencyPair, models.User.username)
         .join(models.ChatMessage, models.AdjacencyPair.from_message_id == models.ChatMessage.id)
         .join(models.User, models.AdjacencyPair.annotator_id == models.User.id)
         .filter(
@@ -227,7 +237,7 @@ def get_all_adjacency_pairs_for_chat_room_admin(
     db: Session, chat_room_id: int
 ) -> List[Tuple[models.AdjacencyPair, str]]:
     return (
-        db.query(models.AdjacencyPair, models.User.email)
+        db.query(models.AdjacencyPair, models.User.username)
         .join(models.ChatMessage, models.AdjacencyPair.from_message_id == models.ChatMessage.id)
         .join(models.User, models.AdjacencyPair.annotator_id == models.User.id)
         .filter(models.ChatMessage.chat_room_id == chat_room_id)
@@ -301,7 +311,7 @@ def get_chat_room_completion_summary(
     )
 
     completed_annotators = [
-        schemas.AnnotatorInfo(id=user.id, email=user.email)
+        schemas.AnnotatorInfo(id=user.id, username=user.username)
         for user in completed_users
     ]
 
@@ -444,8 +454,8 @@ def get_aggregated_annotations_for_chat_room(
             "turn_id": "T001",
             "user_id": "user123",
             "annotations": [
-                {"annotator_id": 10, "annotator_email": "fabio@example.com", "thread_id": "T0"},
-                {"annotator_id": 12, "annotator_email": "ana@example.com", "thread_id": "T0"}
+                {"annotator_id": 10, "annotator_username": "fabio", "thread_id": "T0"},
+                {"annotator_id": 12, "annotator_username": "ana", "thread_id": "T0"}
             ]
         },
         ...
@@ -461,7 +471,7 @@ def get_aggregated_annotations_for_chat_room(
             models.Annotation.id.label('annotation_id'),
             models.Annotation.annotator_id,
             models.Annotation.thread_id,
-            models.User.email.label('annotator_email')
+            models.User.username.label('annotator_username')
         )
         .outerjoin(models.Annotation, models.ChatMessage.id == models.Annotation.message_id)
         .outerjoin(models.User, models.Annotation.annotator_id == models.User.id)
@@ -488,7 +498,7 @@ def get_aggregated_annotations_for_chat_room(
         if result.annotation_id:
             messages_dict[message_id]["annotations"].append({
                 "annotator_id": result.annotator_id,
-                "annotator_email": result.annotator_email,
+                "annotator_username": result.annotator_username,
                 "thread_id": result.thread_id
             })
     
@@ -567,17 +577,21 @@ def import_batch_annotations_for_chat_room(
         
         try:
             # Get or create user
-            user = get_user_by_email(db, annotator_data.annotator_email)
+            user = get_user_by_username(db, annotator_data.annotator_username)
             if not user:
                 # Create new user with default password (they'll need to reset it)
                 from app.auth import get_password_hash
-                hashed_password = get_password_hash("changeMe123!")
+                temporary_password = secrets.token_urlsafe(16)
+                hashed_password = get_password_hash(temporary_password)
                 user_create = schemas.UserCreate(
-                    email=annotator_data.annotator_email,
-                    password=hashed_password,
+                    username=annotator_data.annotator_username,
+                    password=temporary_password,
                     is_admin=False
                 )
                 user = create_user(db, user_create, hashed_password)
+                annotator_errors.append(
+                    f"User '{annotator_data.annotator_username}' created with a temporary password; reset required."
+                )
                 
             # Convert annotations to the format expected by import_annotations_for_chat_room
             annotations_data = [
@@ -607,7 +621,7 @@ def import_batch_annotations_for_chat_room(
             total_skipped += skipped_count
             
         except Exception as e:
-            error_msg = f"Failed to process annotator {annotator_data.annotator_email}: {str(e)}"
+            error_msg = f"Failed to process annotator {annotator_data.annotator_username}: {str(e)}"
             annotator_errors.append(error_msg)
             global_errors.append(error_msg)
             skipped_count = len(annotator_data.annotations)
@@ -615,7 +629,7 @@ def import_batch_annotations_for_chat_room(
         
         # Add result for this annotator
         results.append(schemas.BatchAnnotationResult(
-            annotator_email=annotator_data.annotator_email,
+            annotator_username=annotator_data.annotator_username,
             annotator_name=annotator_data.annotator_name,
             user_id=user.id if user else -1,
             imported_count=imported_count,
@@ -733,7 +747,7 @@ def get_chat_room_iaa_analysis(db: Session, chat_room_id: int) -> Optional[schem
     
     # Get all annotations for this chat room with annotator information
     annotations_query = (
-        db.query(models.Annotation, models.User.email, models.ChatMessage.turn_id)
+        db.query(models.Annotation, models.User.username, models.ChatMessage.turn_id)
         .join(models.ChatMessage, models.Annotation.message_id == models.ChatMessage.id)
         .join(models.User, models.Annotation.annotator_id == models.User.id)
         .filter(models.ChatMessage.chat_room_id == chat_room_id)
@@ -743,11 +757,11 @@ def get_chat_room_iaa_analysis(db: Session, chat_room_id: int) -> Optional[schem
     
     # Group annotations by annotator
     annotator_data = {}
-    for annotation, email, turn_id in annotations_query:
+    for annotation, username, turn_id in annotations_query:
         annotator_id = annotation.annotator_id
         if annotator_id not in annotator_data:
             annotator_data[annotator_id] = {
-                'email': email,
+                'username': username,
                 'annotations': {}
             }
         annotator_data[annotator_id]['annotations'][annotation.message_id] = annotation.thread_id
@@ -760,12 +774,12 @@ def get_chat_room_iaa_analysis(db: Session, chat_room_id: int) -> Optional[schem
         if user.id in annotator_data:
             # Check if this annotator has annotated all messages
             if len(annotator_data[user.id]['annotations']) == message_count:
-                completed_annotators.append(schemas.AnnotatorInfo(id=user.id, email=user.email))
+                completed_annotators.append(schemas.AnnotatorInfo(id=user.id, username=user.username))
             else:
-                pending_annotators.append(schemas.AnnotatorInfo(id=user.id, email=user.email))
+                pending_annotators.append(schemas.AnnotatorInfo(id=user.id, username=user.username))
         else:
             # User hasn't started annotating
-            pending_annotators.append(schemas.AnnotatorInfo(id=user.id, email=user.email))
+            pending_annotators.append(schemas.AnnotatorInfo(id=user.id, username=user.username))
     
     # Determine analysis status
     completed_count = len(completed_annotators)
@@ -794,7 +808,7 @@ def get_chat_room_iaa_analysis(db: Session, chat_room_id: int) -> Optional[schem
     for completed_annotator in completed_annotators:
         annotator_id = completed_annotator.id
         completed_annotator_lists[annotator_id] = {
-            'email': completed_annotator.email,
+            'username': completed_annotator.username,
             'annotations': [annotator_data[annotator_id]['annotations'][msg_id] for msg_id in message_ids]
         }
     
@@ -811,8 +825,8 @@ def get_chat_room_iaa_analysis(db: Session, chat_room_id: int) -> Optional[schem
         pairwise_accuracies.append(schemas.PairwiseAccuracy(
             annotator_1_id=annotator_1_id,
             annotator_2_id=annotator_2_id,
-            annotator_1_email=completed_annotator_lists[annotator_1_id]['email'],
-            annotator_2_email=completed_annotator_lists[annotator_2_id]['email'],
+            annotator_1_username=completed_annotator_lists[annotator_1_id]['username'],
+            annotator_2_username=completed_annotator_lists[annotator_2_id]['username'],
             accuracy=accuracy
         ))
     
@@ -857,7 +871,7 @@ def export_chat_room_data(db: Session, chat_room_id: int) -> dict:
     
     # Get all annotations for this chat room with annotator information
     annotations_query = (
-        db.query(models.Annotation, models.User.email)
+        db.query(models.Annotation, models.User.username)
         .join(models.ChatMessage, models.Annotation.message_id == models.ChatMessage.id)
         .join(models.User, models.Annotation.annotator_id == models.User.id)
         .filter(models.ChatMessage.chat_room_id == chat_room_id)
@@ -867,7 +881,7 @@ def export_chat_room_data(db: Session, chat_room_id: int) -> dict:
     
     # Group annotations by message ID
     annotations_by_message = {}
-    for annotation, annotator_email in annotations_query:
+    for annotation, annotator_username in annotations_query:
         message_id = annotation.message_id
         if message_id not in annotations_by_message:
             annotations_by_message[message_id] = []
@@ -875,7 +889,7 @@ def export_chat_room_data(db: Session, chat_room_id: int) -> dict:
         annotations_by_message[message_id].append({
             "id": annotation.id,
             "thread_id": annotation.thread_id,
-            "annotator_email": annotator_email,
+            "annotator_username": annotator_username,
             "created_at": annotation.created_at.isoformat(),
             "updated_at": annotation.updated_at.isoformat() if annotation.updated_at else None
         })
@@ -894,7 +908,7 @@ def export_chat_room_data(db: Session, chat_room_id: int) -> dict:
     
     # Count completed annotators (those who annotated all messages)
     annotator_completion = {}
-    for annotation, annotator_email in annotations_query:
+    for annotation, annotator_username in annotations_query:
         annotator_id = annotation.annotator_id
         if annotator_id not in annotator_completion:
             annotator_completion[annotator_id] = set()

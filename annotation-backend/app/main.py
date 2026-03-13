@@ -23,15 +23,18 @@ settings = get_settings()
 
 def create_first_admin():
     """Create the first admin user if it doesn't exist."""
+    if not settings.FIRST_ADMIN_USERNAME or not settings.FIRST_ADMIN_PASSWORD:
+        logger.warning("First admin credentials not configured; skipping creation.")
+        return
     db = SessionLocal()
     try:
         # Check if admin exists
-        admin = db.query(User).filter(User.email == settings.FIRST_ADMIN_EMAIL).first()
+        admin = db.query(User).filter(User.username == settings.FIRST_ADMIN_USERNAME).first()
         if not admin:
             # Create admin user
             hashed_password = get_password_hash(settings.FIRST_ADMIN_PASSWORD)
             admin = User(
-                email=settings.FIRST_ADMIN_EMAIL,
+                username=settings.FIRST_ADMIN_USERNAME,
                 hashed_password=hashed_password,
                 is_admin=True
             )

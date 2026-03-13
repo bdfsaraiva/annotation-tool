@@ -353,9 +353,8 @@ const AdminProjectPage = () => {
                 filenameOverride = `${safeRoomName}-all.zip`;
             } else {
                 const user = assignedUsers.find((u) => u.id === annotatorId);
-                const email = user?.email || `user_${annotatorId}`;
-                const local = email.split('@')[0];
-                const safeAnnotator = local.replace(/\s+/g, '-');
+                const username = user?.username || `user_${annotatorId}`;
+                const safeAnnotator = username.replace(/\s+/g, '-');
                 filenameOverride = `${safeRoomName}-${safeAnnotator}.txt`;
             }
             await adjacencyPairsApi.exportChatRoomPairs(exportModal.roomId, annotatorId, filenameOverride);
@@ -559,7 +558,7 @@ const AdminProjectPage = () => {
                             <option value="">-- Select a user to assign --</option>
                             {availableUsersToAssign.map(user => (
                                 <option key={user.id} value={user.id}>
-                                    {user.email} ({user.is_admin ? 'Admin' : 'User'})
+                                    {user.username} ({user.is_admin ? 'Admin' : 'User'})
                                 </option>
                             ))}
                         </select>
@@ -572,7 +571,7 @@ const AdminProjectPage = () => {
                         <thead>
                             <tr>
                                 <th>User ID</th>
-                                <th>Email</th>
+                                <th>Username</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -580,7 +579,7 @@ const AdminProjectPage = () => {
                             {assignedUsers.map(user => (
                                 <tr key={user.id}>
                                     <td>{user.id}</td>
-                                    <td>{user.email}</td>
+                                    <td>{user.username}</td>
                                     <td>
                                         <button 
                                             onClick={() => handleRemoveUser(user.id)}
@@ -726,7 +725,7 @@ const AdminProjectPage = () => {
                         <option value="all">All users</option>
                         {assignedUsers.map((user) => (
                             <option key={user.id} value={user.id}>
-                                {user.email}
+                                {user.username}
                             </option>
                         ))}
                     </select>

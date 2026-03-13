@@ -132,7 +132,7 @@ const AnnotationAnalysisPage = () => {
                                 <strong>Completed ({iaaData.completed_annotators.length}):</strong>
                                 <ul>
                                     {iaaData.completed_annotators.map(annotator => (
-                                        <li key={annotator.id}>{annotator.email}</li>
+                                        <li key={annotator.id}>{annotator.username}</li>
                                     ))}
                                 </ul>
                             </div>
@@ -140,7 +140,7 @@ const AnnotationAnalysisPage = () => {
                                 <strong>Pending ({iaaData.pending_annotators.length}):</strong>
                                 <ul>
                                     {iaaData.pending_annotators.map(annotator => (
-                                        <li key={annotator.id}>{annotator.email}</li>
+                                        <li key={annotator.id}>{annotator.username}</li>
                                     ))}
                                 </ul>
                             </div>

@@ -50,9 +50,9 @@ def list_adjacency_pairs(
         )
 
     result = []
-    for pair, annotator_email in pairs_data:
+    for pair, annotator_username in pairs_data:
         pair_dict = pair.__dict__
-        pair_dict['annotator_email'] = annotator_email
+        pair_dict['annotator_username'] = annotator_username
         result.append(pair_dict)
     return result
 
@@ -110,7 +110,7 @@ def create_adjacency_pair(
         db.commit()
         db.refresh(existing)
         pair_dict = existing.__dict__
-        pair_dict['annotator_email'] = current_user.email
+        pair_dict['annotator_username'] = current_user.username
         return pair_dict
 
     db_pair = AdjacencyPair(
@@ -125,7 +125,7 @@ def create_adjacency_pair(
     db.commit()
     db.refresh(db_pair)
     pair_dict = db_pair.__dict__
-    pair_dict['annotator_email'] = current_user.email
+    pair_dict['annotator_username'] = current_user.username
     return pair_dict
 
 @router.delete("/{pair_id}", status_code=status.HTTP_204_NO_CONTENT)

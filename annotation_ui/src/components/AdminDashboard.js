@@ -14,7 +14,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('projects'); // 'projects' or 'users'
-  const [newUser, setNewUser] = useState({ email: '', password: '', is_admin: false });
+  const [newUser, setNewUser] = useState({ username: '', password: '', is_admin: false });
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProject, setNewProject] = useState({
     name: '',
@@ -27,7 +27,7 @@ const AdminDashboard = () => {
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, user: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
-  const [editUser, setEditUser] = useState({ id: null, email: '', password: '', is_admin: false });
+  const [editUser, setEditUser] = useState({ id: null, username: '', password: '', is_admin: false });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -82,7 +82,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       await usersApi.createUser(newUser);
-      setNewUser({ email: '', password: '', is_admin: false });
+      setNewUser({ username: '', password: '', is_admin: false });
       setShowCreateUserModal(false);
       fetchData(); // Refresh all data
     } catch (error) {
@@ -96,7 +96,7 @@ const AdminDashboard = () => {
   };
 
   const handleEditUser = (user) => {
-    setEditUser({ id: user.id, email: user.email, password: '', is_admin: user.is_admin });
+    setEditUser({ id: user.id, username: user.username, password: '', is_admin: user.is_admin });
     setShowEditUserModal(true);
   };
 
@@ -104,7 +104,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       const payload = {
-        email: editUser.email,
+        username: editUser.username,
         is_admin: editUser.is_admin
       };
       if (editUser.password) {
@@ -112,7 +112,7 @@ const AdminDashboard = () => {
       }
       await usersApi.updateUser(editUser.id, payload);
       setShowEditUserModal(false);
-      setEditUser({ id: null, email: '', password: '', is_admin: false });
+      setEditUser({ id: null, username: '', password: '', is_admin: false });
       fetchData();
     } catch (error) {
       console.error("Failed to update user:", error);
@@ -264,7 +264,7 @@ const AdminDashboard = () => {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Email</th>
+                  <th>Username</th>
                   <th>Role</th>
                   <th>Actions</th>
                 </tr>
@@ -273,7 +273,7 @@ const AdminDashboard = () => {
                 {users.map(user => (
                   <tr key={user.id}>
                     <td>{user.id}</td>
-                    <td>{user.email}</td>
+                    <td>{user.username}</td>
                     <td>
                       <span className={`role-badge ${user.is_admin ? 'admin' : 'user'}`}>
                         {user.is_admin ? 'Admin' : 'User'}
@@ -308,13 +308,14 @@ const AdminDashboard = () => {
           >
             <form onSubmit={handleCreateUser}>
               <div className="form-field">
-                <label htmlFor="email">Email</label>
+                <label htmlFor="username">Username</label>
                 <input
-                  id="email"
-                  type="email"
-                  placeholder="user@example.com"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  id="username"
+                  type="text"
+                  placeholder="username"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                  minLength={3}
                   required
                 />
               </div>
@@ -359,13 +360,14 @@ const AdminDashboard = () => {
           >
             <form onSubmit={handleUpdateUser}>
               <div className="form-field">
-                <label htmlFor="edit-email">Email</label>
+                <label htmlFor="edit-username">Username</label>
                 <input
-                  id="edit-email"
-                  type="email"
-                  placeholder="user@example.com"
-                  value={editUser.email}
-                  onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                  id="edit-username"
+                  type="text"
+                  placeholder="username"
+                  value={editUser.username}
+                  onChange={(e) => setEditUser({ ...editUser, username: e.target.value })}
+                  minLength={3}
                   required
                 />
               </div>
@@ -407,7 +409,7 @@ const AdminDashboard = () => {
             onClose={() => setDeleteConfirmation({ show: false, user: null })}
             onConfirm={confirmDeleteUser}
             title="Delete User"
-            message={`Are you sure you want to delete the user "${deleteConfirmation.user?.email}"? This action cannot be undone.`}
+            message={`Are you sure you want to delete the user "${deleteConfirmation.user?.username}"? This action cannot be undone.`}
             confirmText="Delete"
             type="danger"
             isLoading={isDeleting}

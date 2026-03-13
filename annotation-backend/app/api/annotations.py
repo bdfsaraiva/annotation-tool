@@ -32,7 +32,7 @@ def get_my_annotations(
     # Get annotations with chat room and message information
     annotations = db.query(
         Annotation,
-        User.email.label('annotator_email'),
+        User.username.label('annotator_username'),
         ChatRoom.id.label('chat_room_id'),
         ChatRoom.name.label('chat_room_name'),
         ChatMessage.turn_id.label('message_turn_id'),
@@ -50,13 +50,13 @@ def get_my_annotations(
     
     # Convert to list of dictionaries with rich context
     result = []
-    for annotation, annotator_email, chat_room_id, chat_room_name, message_turn_id, message_text in annotations:
+    for annotation, annotator_username, chat_room_id, chat_room_name, message_turn_id, message_text in annotations:
         annotation_dict = annotation.__dict__.copy()
         # Remove SQLAlchemy internal attributes
         annotation_dict.pop('_sa_instance_state', None)
         
         # Add rich context
-        annotation_dict['annotator_email'] = annotator_email
+        annotation_dict['annotator_username'] = annotator_username
         annotation_dict['chat_room_id'] = chat_room_id
         annotation_dict['chat_room_name'] = chat_room_name
         annotation_dict['message_turn_id'] = message_turn_id
@@ -92,7 +92,7 @@ def get_message_annotations(
     # PILLAR 1: Isolate annotations based on user role
     query = db.query(
         Annotation,
-        User.email.label('annotator_email')
+        User.username.label('annotator_username')
     ).join(
         User, Annotation.annotator_id == User.id
     ).filter(
@@ -105,11 +105,11 @@ def get_message_annotations(
     
     annotations = query.all()
     
-    # Convert to list of dictionaries with annotator email
+    # Convert to list of dictionaries with annotator username
     result = []
-    for annotation, annotator_email in annotations:
+    for annotation, annotator_username in annotations:
         annotation_dict = annotation.__dict__
-        annotation_dict['annotator_email'] = annotator_email
+        annotation_dict['annotator_username'] = annotator_username
         result.append(annotation_dict)
     
     return result
@@ -160,9 +160,9 @@ def create_annotation(
     db.commit()
     db.refresh(db_annotation)
     
-    # Add annotator email to the response
+    # Add annotator username to the response
     annotation_dict = db_annotation.__dict__
-    annotation_dict['annotator_email'] = current_user.email
+    annotation_dict['annotator_username'] = current_user.username
     
     return annotation_dict
 

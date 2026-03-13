@@ -28,7 +28,7 @@ Open:
 - API docs: `http://localhost:8000/docs`
 
 Default admin:
-- `admin@example.com` / `admin`
+- `admin` / `admin`
 
 ## Configuration
 The only required config is `SERVER_IP` in `.env`:

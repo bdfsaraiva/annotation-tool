@@ -7,7 +7,7 @@ const MessageBubble = ({
   onAnnotationCreate, 
   onAnnotationDelete,
   existingThreads = [],
-  currentUserEmail,
+  currentUserUsername,
   isAnnotating,
   // New props for highlighting functionality
   isUserHighlighted = false,
@@ -56,7 +56,7 @@ const MessageBubble = ({
   const shouldShowExpandButton = message?.turn_text && message.turn_text.length > maxLength;
 
   // Find current user's annotation on this message
-  const currentUserAnnotation = annotations.find(ann => ann.annotator_email === currentUserEmail);
+  const currentUserAnnotation = annotations.find(ann => ann.annotator_username === currentUserUsername);
 
   const replyToValue =
     message.reply_to_turn ??
