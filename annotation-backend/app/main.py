@@ -81,7 +81,7 @@ app.include_router(adjacency_pairs_router)
 @app.on_event("startup")
 def startup_event():
     """Initialize database and create first admin on startup."""
-    # init_db()  # Removed: Schema managed by Alembic migrations
+    init_db()
     create_first_admin()
 
 
