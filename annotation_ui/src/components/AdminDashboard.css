@@ -87,6 +87,7 @@
 .admin-dashboard .form-container input[type="text"],
 .admin-dashboard .form-container input[type="text"],
 .admin-dashboard .form-container input[type="password"],
+.admin-dashboard .form-container select,
 .admin-dashboard .form-container textarea {
     width: 100%;
     padding: 0.75rem;

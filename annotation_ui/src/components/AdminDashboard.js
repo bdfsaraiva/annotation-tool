@@ -17,7 +17,7 @@ const AdminDashboard = () => {
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
-    annotation_type: 'disentanglement',
+    annotation_type: '',
     relation_types: []
   });
   const [relationTypesInput, setRelationTypesInput] = useState('');
@@ -59,6 +59,13 @@ const AdminDashboard = () => {
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
+    if (!newProject.annotation_type) {
+      setWarningModal({
+        open: true,
+        message: 'Please select a project type.'
+      });
+      return;
+    }
     try {
       const cleanedRelationTypes = relationTypesInput
         .split(',')
@@ -69,7 +76,7 @@ const AdminDashboard = () => {
         relation_types: newProject.annotation_type === 'adjacency_pairs' ? cleanedRelationTypes : []
       };
       await projectsApi.createProject(payload);
-      setNewProject({ name: '', description: '', annotation_type: 'disentanglement', relation_types: [] });
+      setNewProject({ name: '', description: '', annotation_type: '', relation_types: [] });
       setRelationTypesInput('');
       setIsCreatingProject(false);
       fetchData(); // Refresh data to show the new project
@@ -202,6 +209,7 @@ const AdminDashboard = () => {
                   onChange={(e) => setNewProject({ ...newProject, annotation_type: e.target.value })}
                   required
                 >
+                  <option value="" disabled>Select project type</option>
                   <option value="disentanglement">Chat Disentanglement</option>
                   <option value="adjacency_pairs">Adjacency Pairs</option>
                 </select>
@@ -209,7 +217,6 @@ const AdminDashboard = () => {
                   placeholder="A brief description of the project"
                   value={newProject.description}
                   onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                  required
                 />
                 {newProject.annotation_type === 'adjacency_pairs' && (
                   <input

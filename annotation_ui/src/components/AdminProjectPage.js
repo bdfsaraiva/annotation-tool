@@ -654,8 +654,8 @@ const AdminProjectPage = () => {
 
                 <div className="import-csv-section">
                     <h3>Import New Chat Room</h3>
-                    <input type="file" id="csv-file-input" accept=".csv" onChange={handleFileSelect} />
-                    <div className="import-csv-actions">
+                    <div className="import-csv-row">
+                        <input type="file" id="csv-file-input" accept=".csv" onChange={handleFileSelect} />
                         <button onClick={handlePreviewCsv} disabled={!selectedFile || isPreviewing} className="action-button secondary">
                             {isPreviewing ? 'Previewing...' : 'Preview CSV'}
                         </button>
