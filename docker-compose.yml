@@ -20,7 +20,7 @@ services:
     ports:
       - "3721:3721"
     environment:
-      - VITE_API_URL=${VITE_API_URL}
+      - API_URL=${API_URL}
     depends_on:
       - backend
 
