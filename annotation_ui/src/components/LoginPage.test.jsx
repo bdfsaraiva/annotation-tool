@@ -38,9 +38,9 @@ describe('LoginPage', () => {
 
   it('shows validation error when form is submitted empty', async () => {
     render(<LoginPage />, { wrapper: Wrapper });
-    fireEvent.click(screen.getByRole('button', { name: /login/i }));
+    fireEvent.click(screen.getByRole('button', { name: /log in/i }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
     });
   });
 });

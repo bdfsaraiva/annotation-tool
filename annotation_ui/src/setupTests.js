@@ -2,8 +2,25 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
-// Mock axios globally
-vi.mock('axios');
+// Mock axios globally so axios.create() returns a usable object
+vi.mock('axios', () => {
+  const mockInstance = {
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+  };
+  return {
+    default: {
+      create: vi.fn(() => mockInstance),
+      post: vi.fn(),
+    },
+  };
+});
 
 const originalError = console.error;
 console.error = (...args) => {
