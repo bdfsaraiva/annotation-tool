@@ -1,0 +1,59 @@
+site_name: LACE
+site_description: Labelling Adjacency and Conversation Entanglement — a web application for multi-annotator conversational analysis
+site_url: https://bdfsaraiva.github.io/LACE/
+repo_url: https://github.com/bdfsaraiva/LACE
+repo_name: bdfsaraiva/LACE
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.instant
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Reference:
+    - REST API: reference/api.md
+    - Data Format: reference/data-format.md
+    - Configuration: reference/configuration.md
+  - Development:
+    - Architecture: development/architecture.md
+    - Setup: development/setup.md
+    - Testing: development/testing.md
+    - Operations: development/operations.md
+    - Contributing: development/contributing.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true

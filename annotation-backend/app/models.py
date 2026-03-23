@@ -103,7 +103,7 @@ class ChatMessage(Base):
     )
 
 class Annotation(Base):
-    __tablename__ = "annotations"
+    __tablename__ = "disentanglement_annotation"
     
     id: Mapped[int] = mapped_column(primary_key=True)
     message_id: Mapped[int] = mapped_column(ForeignKey("chat_messages.id", ondelete="CASCADE"))
@@ -126,7 +126,7 @@ class Annotation(Base):
     )
 
 class AdjacencyPair(Base):
-    __tablename__ = "adjacency_pairs"
+    __tablename__ = "adj_pairs_annotation"
     
     id: Mapped[int] = mapped_column(primary_key=True)
     from_message_id: Mapped[int] = mapped_column(ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False)

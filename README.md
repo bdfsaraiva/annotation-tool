@@ -108,9 +108,6 @@ conversion_tools/       CSV/Excel batch-import utilities (Python)
 data/                   SQLite database (dev) / bind-mounted volume
 docs/                   Architecture, operations, and screenshots
 ```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a full component diagram and database schema.
-
 ---
 
 ## Data Format
