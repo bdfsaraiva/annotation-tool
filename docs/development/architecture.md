@@ -6,6 +6,10 @@ LACE is a three-tier web application. The diagram below shows the high-level str
 
 ![LACE Architecture](architecture.svg)
 
+The diagram below shows the application map — screens, user roles, and navigation flow.
+
+![LACE Application Map](appmap.svg)
+
 ---
 
 ## Tiers

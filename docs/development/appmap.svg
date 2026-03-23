@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="590" viewBox="0 0 900 590" font-family="Helvetica, Arial, sans-serif">
+
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#475569" />
+    </marker>
+    <marker id="arr-dash" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="590" fill="#f8fafc" rx="6" />
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e293b">LACE — Application Map</text>
+
+  <!-- ─────────────────────────────────── -->
+  <!-- LOGIN (shared, centered)           -->
+  <!-- ─────────────────────────────────── -->
+  <rect x="340" y="46" width="220" height="44" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.8" />
+  <text x="450" y="63" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e40af">Login</text>
+  <text x="450" y="79" text-anchor="middle" font-size="9.5" fill="#1e40af">username + password · JWT issued</text>
+
+  <!-- Fork arrows from Login -->
+  <path d="M 400 90 Q 270 108 220 128" stroke="#475569" stroke-width="1.6" fill="none" marker-end="url(#arr)" />
+  <path d="M 500 90 Q 630 108 680 128" stroke="#475569" stroke-width="1.6" fill="none" marker-end="url(#arr)" />
+
+  <!-- ─────────────────────────────────── -->
+  <!-- ADMIN SECTION                      -->
+  <!-- ─────────────────────────────────── -->
+  <rect x="22" y="112" width="406" height="452" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5" />
+  <text x="42" y="132" font-size="12" font-weight="bold" fill="#15803d">ADMIN</text>
+  <line x1="22" y1="138" x2="428" y2="138" stroke="#86efac" stroke-width="1" />
+
+  <!-- Admin Box 1: Dashboard -->
+  <rect x="42" y="148" width="366" height="44" rx="5" fill="#dcfce7" stroke="#86efac" stroke-width="1.2" />
+  <text x="225" y="165" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">Admin Dashboard</text>
+  <text x="225" y="181" text-anchor="middle" font-size="9.5" fill="#14532d">project list · user accounts · progress overview</text>
+  <line x1="225" y1="192" x2="225" y2="212" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Admin Box 2: Project Management -->
+  <rect x="42" y="216" width="366" height="44" rx="5" fill="#dcfce7" stroke="#86efac" stroke-width="1.2" />
+  <text x="225" y="233" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">Project Management</text>
+  <text x="225" y="249" text-anchor="middle" font-size="9.5" fill="#14532d">create / edit · set annotation type · configure relations</text>
+  <line x1="225" y1="260" x2="225" y2="280" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Admin Box 3: Import Corpus -->
+  <rect x="42" y="284" width="366" height="44" rx="5" fill="#dcfce7" stroke="#86efac" stroke-width="1.2" />
+  <text x="225" y="301" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">Import Corpus</text>
+  <text x="225" y="317" text-anchor="middle" font-size="9.5" fill="#14532d">upload CSV · row-level preview · commit to database</text>
+  <line x1="225" y1="328" x2="225" y2="348" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Admin Box 4: Assign Annotators -->
+  <rect x="42" y="352" width="366" height="44" rx="5" fill="#dcfce7" stroke="#86efac" stroke-width="1.2" />
+  <text x="225" y="369" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">Assign Annotators</text>
+  <text x="225" y="385" text-anchor="middle" font-size="9.5" fill="#14532d">grant room access to annotator accounts</text>
+  <line x1="225" y1="396" x2="225" y2="416" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Admin Box 5: IAA Analysis -->
+  <rect x="42" y="420" width="366" height="44" rx="5" fill="#dcfce7" stroke="#86efac" stroke-width="1.2" />
+  <text x="225" y="437" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">IAA Analysis</text>
+  <text x="225" y="453" text-anchor="middle" font-size="9.5" fill="#14532d">pairwise F1 (disentanglement) · Cohen's κ (adj. pairs)</text>
+  <line x1="225" y1="464" x2="225" y2="484" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Admin Box 6: Export -->
+  <rect x="42" y="488" width="366" height="44" rx="5" fill="#dcfce7" stroke="#86efac" stroke-width="1.2" />
+  <text x="225" y="505" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">Export Results</text>
+  <text x="225" y="521" text-anchor="middle" font-size="9.5" fill="#14532d">JSON (disentanglement) · ZIP plain-text (adj. pairs)</text>
+
+  <!-- ─────────────────────────────────── -->
+  <!-- ANNOTATOR SECTION                  -->
+  <!-- ─────────────────────────────────── -->
+  <rect x="472" y="112" width="406" height="382" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5" />
+  <text x="492" y="132" font-size="12" font-weight="bold" fill="#6d28d9">ANNOTATOR</text>
+  <line x1="472" y1="138" x2="878" y2="138" stroke="#c4b5fd" stroke-width="1" />
+
+  <!-- Annotator Box 1: My Rooms -->
+  <rect x="492" y="148" width="366" height="44" rx="5" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1.2" />
+  <text x="675" y="165" text-anchor="middle" font-size="11" font-weight="bold" fill="#6d28d9">My Assigned Rooms</text>
+  <text x="675" y="181" text-anchor="middle" font-size="9.5" fill="#4c1d95">project list · room list · completion status</text>
+  <line x1="675" y1="192" x2="675" y2="212" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Annotator Box 2: Open Room -->
+  <rect x="492" y="216" width="366" height="44" rx="5" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1.2" />
+  <text x="675" y="233" text-anchor="middle" font-size="11" font-weight="bold" fill="#6d28d9">Open Room</text>
+  <text x="675" y="249" text-anchor="middle" font-size="9.5" fill="#4c1d95">load messages · restore prior annotations</text>
+  <line x1="675" y1="260" x2="675" y2="280" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Annotator Box 3: Annotation Workspace (taller — shows both modes) -->
+  <rect x="492" y="284" width="366" height="64" rx="5" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1.2" />
+  <text x="675" y="302" text-anchor="middle" font-size="11" font-weight="bold" fill="#6d28d9">Annotation Workspace</text>
+  <line x1="492" y1="308" x2="858" y2="308" stroke="#c4b5fd" stroke-width="0.8" />
+  <text x="675" y="324" text-anchor="middle" font-size="9.5" fill="#4c1d95">Disentanglement: assign turns to colour-coded threads</text>
+  <text x="675" y="339" text-anchor="middle" font-size="9.5" fill="#4c1d95">Adjacency Pairs: draw typed directed links (SVG arcs)</text>
+  <line x1="675" y1="348" x2="675" y2="368" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" />
+
+  <!-- Annotator Box 4: Mark as Complete -->
+  <rect x="492" y="372" width="366" height="44" rx="5" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1.2" />
+  <text x="675" y="389" text-anchor="middle" font-size="11" font-weight="bold" fill="#6d28d9">Mark as Complete</text>
+  <text x="675" y="405" text-anchor="middle" font-size="9.5" fill="#4c1d95">signal annotations are done · visible to admin</text>
+
+  <!-- ─────────────────────────────────── -->
+  <!-- CROSS ARROW: Assign → My Rooms     -->
+  <!-- ─────────────────────────────────── -->
+  <path d="M 408 374 H 450 V 172 H 492"
+        stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="5,4" fill="none"
+        marker-end="url(#arr-dash)" />
+  <rect x="410" y="260" width="80" height="16" rx="3" fill="#f8fafc" />
+  <text x="450" y="272" text-anchor="middle" font-size="8.5" fill="#64748b">grants access</text>
+
+  <!-- ─────────────────────────────────── -->
+  <!-- CROSS ARROW: Mark Complete → IAA   -->
+  <!-- ─────────────────────────────────── -->
+  <path d="M 492 394 H 450 V 442 H 408"
+        stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="5,4" fill="none"
+        marker-end="url(#arr-dash)" />
+  <rect x="410" y="412" width="80" height="16" rx="3" fill="#f8fafc" />
+  <text x="450" y="424" text-anchor="middle" font-size="8.5" fill="#64748b">triggers IAA</text>
+
+</svg>

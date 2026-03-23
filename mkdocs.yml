@@ -6,6 +6,8 @@ repo_name: bdfsaraiva/LACE
 
 theme:
   name: material
+  icon:
+    logo: material/edit_document
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default

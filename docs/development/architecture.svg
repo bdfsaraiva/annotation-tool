@@ -136,7 +136,7 @@
   <rect x="36" y="478" width="142" height="74" rx="5" ry="5" fill="#fefce8" stroke="#fde68a" stroke-width="1.2" />
   <text x="107" y="494" text-anchor="middle" font-size="11" font-weight="bold" fill="#92400e">users</text>
   <line x1="36" y1="498" x2="178" y2="498" stroke="#fde68a" stroke-width="0.8" />
-  <text x="46" y="512" font-size="9.5" fill="#713f12">• id, username, email</text>
+  <text x="46" y="512" font-size="9.5" fill="#713f12">• id, username</text>
   <text x="46" y="525" font-size="9.5" fill="#713f12">• hashed_password</text>
   <text x="46" y="538" font-size="9.5" fill="#713f12">• role (admin/annotator)</text>
 
@@ -153,23 +153,15 @@
   <text x="450" y="494" text-anchor="middle" font-size="11" font-weight="bold" fill="#92400e">chat_rooms / messages</text>
   <line x1="348" y1="498" x2="552" y2="498" stroke="#fde68a" stroke-width="0.8" />
   <text x="358" y="512" font-size="9.5" fill="#713f12">• room: id, name, project_id</text>
-  <text x="358" y="525" font-size="9.5" fill="#713f12">• message: id, author, text</text>
-  <text x="358" y="538" font-size="9.5" fill="#713f12">• timestamp, sequence_num</text>
+  <text x="358" y="525" font-size="9.5" fill="#713f12">• message: turn_id, author, text</text>
+  <text x="358" y="538" font-size="9.5" fill="#713f12">• reply_to_turn (optional)</text>
 
-  <!-- Data Box 4: annotations -->
-  <rect x="566" y="478" width="142" height="74" rx="5" ry="5" fill="#fefce8" stroke="#fde68a" stroke-width="1.2" />
-  <text x="637" y="494" text-anchor="middle" font-size="11" font-weight="bold" fill="#92400e">annotations</text>
-  <line x1="566" y1="498" x2="708" y2="498" stroke="#fde68a" stroke-width="0.8" />
-  <text x="576" y="512" font-size="9.5" fill="#713f12">• id, user_id, room_id</text>
-  <text x="576" y="525" font-size="9.5" fill="#713f12">• message_id, thread_id</text>
-  <text x="576" y="538" font-size="9.5" fill="#713f12">• chat_room_completions</text>
-
-  <!-- Data Box 5: adjacency_pairs -->
-  <rect x="722" y="478" width="142" height="74" rx="5" ry="5" fill="#fefce8" stroke="#fde68a" stroke-width="1.2" />
-  <text x="793" y="494" text-anchor="middle" font-size="11" font-weight="bold" fill="#92400e">adjacency_pairs</text>
-  <line x1="722" y1="498" x2="864" y2="498" stroke="#fde68a" stroke-width="0.8" />
-  <text x="732" y="512" font-size="9.5" fill="#713f12">• id, user_id, room_id</text>
-  <text x="732" y="525" font-size="9.5" fill="#713f12">• source_msg, target_msg</text>
-  <text x="732" y="538" font-size="9.5" fill="#713f12">• pair_type label</text>
+  <!-- Data Box 4: Annotation (generic — Disentanglement / Adj_pairs) -->
+  <rect x="566" y="478" width="298" height="74" rx="5" ry="5" fill="#fefce8" stroke="#fde68a" stroke-width="1.2" />
+  <text x="715" y="493" text-anchor="middle" font-size="11" font-weight="bold" fill="#92400e">Annotation</text>
+  <text x="715" y="507" text-anchor="middle" font-size="9.5" fill="#b45309">(Disentanglement / Adj_pairs)</text>
+  <line x1="566" y1="512" x2="864" y2="512" stroke="#fde68a" stroke-width="0.8" />
+  <text x="576" y="526" font-size="9.5" fill="#713f12">• annotator_id, project_id, message_id</text>
+  <text x="576" y="539" font-size="9.5" fill="#713f12">• task-specific fields · chat_room_completions</text>
 
 </svg>
