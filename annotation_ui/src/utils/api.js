@@ -276,6 +276,21 @@ export const projects = {
         });
         return response.data;
     },
+    getReadStatus: async (projectId, roomId) => {
+        const response = await api.get(`/projects/${projectId}/chat-rooms/${roomId}/read-status`);
+        // Returns array of {message_id, is_read}; convert to {message_id: is_read} map
+        const map = {};
+        (response.data || []).forEach(item => { map[item.message_id] = item.is_read; });
+        return map;
+    },
+    updateReadStatus: async (projectId, roomId, statusMap) => {
+        // statusMap: {message_id: is_read}
+        const statuses = Object.entries(statusMap).map(([mid, isRead]) => ({
+            message_id: Number(mid),
+            is_read: Boolean(isRead),
+        }));
+        await api.put(`/projects/${projectId}/chat-rooms/${roomId}/read-status`, { statuses });
+    },
 };
 
 // Users endpoints
@@ -514,6 +529,17 @@ export const annotations = {
     getAdjacencyPairsStatus: async (chatRoomId) => {
         const response = await api.get(`/admin/chat-rooms/${chatRoomId}/adjacency-status`);
         return response.data;
+    },
+    getReadStatusSummary: async (chatRoomId) => {
+        const response = await api.get(`/admin/chat-rooms/${chatRoomId}/read-status-summary`);
+        // Returns {chat_room_id, entries: [{message_id, annotator_id, annotator_username, is_read}]}
+        // Convert to {message_id: {annotator_username: is_read}}
+        const byMessage = {};
+        (response.data?.entries || []).forEach(e => {
+            if (!byMessage[e.message_id]) byMessage[e.message_id] = {};
+            byMessage[e.message_id][e.annotator_username] = e.is_read;
+        });
+        return byMessage;
     },
     // EXPORT FUNCTIONALITY
     exportChatRoom: async (chatRoomId) => {

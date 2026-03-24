@@ -10,6 +10,7 @@ const AdminChatRoomView = () => {
     const [project, setProject] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messageAnnotations, setMessageAnnotations] = useState({});
+    const [messageReadStatus, setMessageReadStatus] = useState({});
     const [assignedUsers, setAssignedUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -47,20 +48,31 @@ const AdminChatRoomView = () => {
             setMessages(messagesData);
             setAssignedUsers(usersData);
 
-            // Fetch annotations for the whole chat room (admin gets all)
+            // Fetch per-type data
             const annotationsData = {};
-            try {
-                const allAnnotations = await annotationsApi.getChatRoomAnnotations(projectId, roomId);
-                allAnnotations.forEach((ann) => {
-                    if (!annotationsData[ann.message_id]) {
-                        annotationsData[ann.message_id] = [];
-                    }
-                    annotationsData[ann.message_id].push(ann);
-                });
-            } catch (err) {
-                console.error("Failed to fetch annotations for chat room:", err);
+            const readStatusData = {};
+            if (projectData.annotation_type === 'adjacency_pairs') {
+                try {
+                    const summary = await annotationsApi.getReadStatusSummary(roomId);
+                    Object.assign(readStatusData, summary);
+                } catch (err) {
+                    console.error("Failed to fetch read status summary:", err);
+                }
+            } else {
+                try {
+                    const allAnnotations = await annotationsApi.getChatRoomAnnotations(projectId, roomId);
+                    allAnnotations.forEach((ann) => {
+                        if (!annotationsData[ann.message_id]) {
+                            annotationsData[ann.message_id] = [];
+                        }
+                        annotationsData[ann.message_id].push(ann);
+                    });
+                } catch (err) {
+                    console.error("Failed to fetch annotations for chat room:", err);
+                }
             }
             setMessageAnnotations(annotationsData);
+            setMessageReadStatus(readStatusData);
 
             // Calculate simple stats
             const totalMessages = messagesResponse.total ?? messagesData.length;
@@ -68,12 +80,22 @@ const AdminChatRoomView = () => {
             let annotatedMessages = 0;
             let totalAnnotations = 0;
 
-            Object.values(annotationsData).forEach(annotations => {
-                if (annotations.length > 0) {
-                    annotatedMessages++;
-                    totalAnnotations += annotations.length;
-                }
-            });
+            if (projectData.annotation_type === 'adjacency_pairs') {
+                // For adj_pairs: count turns where at least one annotator has read
+                messagesData.forEach(msg => {
+                    const readers = readStatusData[msg.id] || {};
+                    const readCount = Object.values(readers).filter(Boolean).length;
+                    if (readCount > 0) annotatedMessages++;
+                    totalAnnotations += readCount;
+                });
+            } else {
+                Object.values(annotationsData).forEach(annotations => {
+                    if (annotations.length > 0) {
+                        annotatedMessages++;
+                        totalAnnotations += annotations.length;
+                    }
+                });
+            }
 
             setStats({
                 totalMessages,
@@ -237,7 +259,9 @@ const AdminChatRoomView = () => {
                 </div>
                 <div className="stat-item">
                     <span className="stat-value">{stats.annotatedMessages}</span>
-                    <span className="stat-label">Annotated Messages</span>
+                    <span className="stat-label">
+                        {project?.annotation_type === 'adjacency_pairs' ? 'Turns with Reads' : 'Annotated Messages'}
+                    </span>
                 </div>
                 <div className="stat-item">
                     <span className="stat-value">{stats.completionRate}%</span>
@@ -364,10 +388,73 @@ const AdminChatRoomView = () => {
 
             <div className="messages-container">
                 {messages.map((message, index) => {
+                    const isAdjPairs = project?.annotation_type === 'adjacency_pairs';
+
+                    if (isAdjPairs) {
+                        const readers = messageReadStatus[message.id] || {};
+                        const readUsers = assignedUsers.filter(u => readers[u.username] === true);
+                        const unreadUsers = assignedUsers.filter(u => readers[u.username] !== true);
+                        const readCount = readUsers.length;
+
+                        return (
+                            <div key={message.id} className="message-card">
+                                <div className="message-header">
+                                    <span className="turn-number">#{message.turn_id || index + 1}</span>
+                                    <span className="user-badge">{message.user_id}</span>
+                                    {message.reply_to_turn && (
+                                        <span className="reply-indicator">↳ #{message.reply_to_turn}</span>
+                                    )}
+                                    <div className="annotation-status">
+                                        <span className={readCount > 0 ? "status-done" : "status-pending"}>
+                                            {readCount}/{assignedUsers.length}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="message-body">
+                                    <div className="message-text">{message.turn_text}</div>
+
+                                    <div className="annotators-section">
+                                        {readUsers.length > 0 ? (
+                                            <div className="annotated-by">
+                                                {readUsers.map(user => (
+                                                    <div key={user.id} className="annotator-item">
+                                                        <span className="annotator-name" title={user.username}>
+                                                            {user.username}
+                                                        </span>
+                                                        <span className="thread-info read-badge">lido</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="no-annotations">
+                                                <span className="pending-label">Nenhum anotador leu este turno</span>
+                                            </div>
+                                        )}
+
+                                        {unreadUsers.length > 0 && (
+                                            <div className="missing-users-section">
+                                                <span className="missing-label">Por ler:</span>
+                                                <div className="missing-users-compact">
+                                                    {unreadUsers.map(user => (
+                                                        <span key={user.id} className="missing-tag" title={user.username}>
+                                                            {user.username}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    // Disentanglement
                     const annotations = messageAnnotations[message.id] || [];
                     const annotatedUsers = getUsersWhoAnnotated(message.id);
                     const missingUsers = getUsersWhoDidntAnnotate(message.id);
-                    
+
                     return (
                         <div key={message.id} className="message-card">
                             <div className="message-header">
@@ -382,24 +469,22 @@ const AdminChatRoomView = () => {
                                     </span>
                                 </div>
                             </div>
-                            
+
                             <div className="message-body">
                                 <div className="message-text">
                                     {message.turn_text}
                                 </div>
-                                
+
                                 <div className="annotators-section">
                                     {annotatedUsers.length > 0 ? (
                                         <div className="annotated-by">
                                             {annotatedUsers.map(username => {
                                                 const userAnnotations = annotations.filter(ann => ann.annotator_username === username);
                                                 const threadIds = userAnnotations.map(ann => ann.thread_id).join(', ');
-                                                const userName = username;
-                                                
                                                 return (
                                                     <div key={username} className="annotator-item">
                                                         <span className="annotator-name" title={username}>
-                                                            {userName}
+                                                            {username}
                                                         </span>
                                                         <span className="thread-info">
                                                             {threadIds}
@@ -413,7 +498,7 @@ const AdminChatRoomView = () => {
                                             <span className="pending-label">No annotations yet</span>
                                         </div>
                                     )}
-                                    
+
                                     {missingUsers.length > 0 && (
                                         <div className="missing-users-section">
                                             <span className="missing-label">Pending:</span>

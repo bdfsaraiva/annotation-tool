@@ -152,6 +152,22 @@ class AdjacencyPair(Base):
         UniqueConstraint('from_message_id', 'to_message_id', 'annotator_id', name='uix_adjacency_pair'),
     )
 
+class MessageReadStatus(Base):
+    __tablename__ = "message_read_status"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message_id: Mapped[int] = mapped_column(ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False)
+    annotator_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('message_id', 'annotator_id', name='uix_message_read_status'),
+        Index('ix_message_read_status_message', 'message_id'),
+        Index('ix_message_read_status_annotator', 'annotator_id'),
+    )
+
 class ChatRoomCompletion(Base):
     __tablename__ = "chat_room_completions"
 

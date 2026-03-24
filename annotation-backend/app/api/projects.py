@@ -6,16 +6,18 @@ from sqlalchemy import select
 from ..database import get_db
 from ..models import User, Project, ProjectAssignment, ChatMessage, ChatRoom
 from ..schemas import (
-    Project as ProjectSchema, 
-    ProjectCreate, 
-    User as UserSchema, 
-    ProjectList, 
+    Project as ProjectSchema,
+    ProjectCreate,
+    User as UserSchema,
+    ProjectList,
     MessageList,
     ChatRoom as ChatRoomSchema,
     ChatMessage as ChatMessageSchema,
     Annotation as AnnotationSchema,
     ChatRoomCompletion as ChatRoomCompletionSchema,
-    ChatRoomCompletionUpdate as ChatRoomCompletionUpdateSchema
+    ChatRoomCompletionUpdate as ChatRoomCompletionUpdateSchema,
+    MessageReadStatusBatchUpdate,
+    MessageReadStatusResponse,
 )
 from ..auth import get_current_user, get_current_admin_user
 from ..dependencies import verify_project_access
@@ -459,3 +461,57 @@ def update_chat_room_completion(
         is_completed=payload.is_completed
     )
     return completion
+
+
+@router.get(
+    "/{project_id}/chat-rooms/{room_id}/read-status",
+    response_model=List[MessageReadStatusResponse],
+    tags=["chat rooms"]
+)
+def get_read_status(
+    project_id: int,
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(verify_project_access)
+):
+    chat_room = db.query(ChatRoom).filter(
+        ChatRoom.id == room_id,
+        ChatRoom.project_id == project_id
+    ).first()
+    if not chat_room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
+    status_map = crud.get_read_status_for_room(db, room_id, current_user.id)
+    return [
+        MessageReadStatusResponse(message_id=mid, is_read=is_read)
+        for mid, is_read in status_map.items()
+    ]
+
+
+@router.put(
+    "/{project_id}/chat-rooms/{room_id}/read-status",
+    status_code=204,
+    tags=["chat rooms"]
+)
+def update_read_status(
+    project_id: int,
+    room_id: int,
+    payload: MessageReadStatusBatchUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(verify_project_access)
+):
+    chat_room = db.query(ChatRoom).filter(
+        ChatRoom.id == room_id,
+        ChatRoom.project_id == project_id
+    ).first()
+    if not chat_room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
+    crud.batch_upsert_read_status(
+        db=db,
+        room_id=room_id,
+        project_id=project_id,
+        annotator_id=current_user.id,
+        statuses=[{"message_id": s.message_id, "is_read": s.is_read} for s in payload.statuses],
+    )
+    return None

@@ -360,6 +360,14 @@
     border: 1px solid var(--border-color);
 }
 
+.thread-info.read-badge {
+    color: #16a34a;
+    background-color: #dcfce7;
+    border-color: #86efac;
+    font-family: inherit;
+    font-weight: 600;
+}
+
 .no-annotations {
     display: flex;
     align-items: center;

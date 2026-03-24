@@ -141,6 +141,28 @@ class AdjacencyPair(AdjacencyPairBase):
     class Config:
         from_attributes = True
 
+# Message Read Status Schemas
+class MessageReadStatusItem(BaseModel):
+    message_id: int
+    is_read: bool
+
+class MessageReadStatusBatchUpdate(BaseModel):
+    statuses: List[MessageReadStatusItem]
+
+class MessageReadStatusResponse(BaseModel):
+    message_id: int
+    is_read: bool
+
+class ReadStatusEntry(BaseModel):
+    message_id: int
+    annotator_id: int
+    annotator_username: str
+    is_read: bool
+
+class RoomReadStatusSummary(BaseModel):
+    chat_room_id: int
+    entries: List[ReadStatusEntry]
+
 # Chat Room Completion Schemas
 class ChatRoomCompletionUpdate(BaseModel):
     is_completed: bool

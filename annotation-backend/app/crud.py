@@ -292,6 +292,83 @@ def upsert_chat_room_completion(
     db.refresh(completion)
     return completion
 
+def batch_upsert_read_status(
+    db: Session,
+    room_id: int,
+    project_id: int,
+    annotator_id: int,
+    statuses: list,  # list of {message_id, is_read}
+) -> None:
+    now = datetime.utcnow()
+    for item in statuses:
+        existing = db.query(models.MessageReadStatus).filter(
+            models.MessageReadStatus.message_id == item["message_id"],
+            models.MessageReadStatus.annotator_id == annotator_id,
+        ).first()
+        if existing:
+            existing.is_read = item["is_read"]
+            existing.updated_at = now
+        else:
+            db.add(models.MessageReadStatus(
+                message_id=item["message_id"],
+                annotator_id=annotator_id,
+                project_id=project_id,
+                is_read=item["is_read"],
+                updated_at=now,
+            ))
+    db.commit()
+
+
+def get_read_status_for_room(
+    db: Session, room_id: int, annotator_id: int
+) -> dict:
+    """Returns {message_id: is_read} for a specific annotator in a room."""
+    message_ids = [
+        row[0] for row in
+        db.query(models.ChatMessage.id).filter(models.ChatMessage.chat_room_id == room_id).all()
+    ]
+    if not message_ids:
+        return {}
+    rows = db.query(models.MessageReadStatus).filter(
+        models.MessageReadStatus.message_id.in_(message_ids),
+        models.MessageReadStatus.annotator_id == annotator_id,
+    ).all()
+    return {r.message_id: r.is_read for r in rows}
+
+
+def get_read_status_summary_for_room(
+    db: Session, room_id: int
+) -> schemas.RoomReadStatusSummary:
+    """Admin: per-message per-annotator read status for a room."""
+    message_ids = [
+        row[0] for row in
+        db.query(models.ChatMessage.id).filter(models.ChatMessage.chat_room_id == room_id).all()
+    ]
+    if not message_ids:
+        return schemas.RoomReadStatusSummary(chat_room_id=room_id, entries=[])
+    rows = (
+        db.query(
+            models.MessageReadStatus.message_id,
+            models.MessageReadStatus.annotator_id,
+            models.User.username,
+            models.MessageReadStatus.is_read,
+        )
+        .join(models.User, models.MessageReadStatus.annotator_id == models.User.id)
+        .filter(models.MessageReadStatus.message_id.in_(message_ids))
+        .all()
+    )
+    entries = [
+        schemas.ReadStatusEntry(
+            message_id=r.message_id,
+            annotator_id=r.annotator_id,
+            annotator_username=r.username,
+            is_read=r.is_read,
+        )
+        for r in rows
+    ]
+    return schemas.RoomReadStatusSummary(chat_room_id=room_id, entries=entries)
+
+
 def get_chat_room_completion_summary(
     db: Session, chat_room_id: int
 ) -> schemas.ChatRoomCompletionSummary:

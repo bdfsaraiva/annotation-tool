@@ -176,11 +176,13 @@ const AnnotatorChatRoomPage = () => {
       ];
       if (projectData.annotation_type === 'adjacency_pairs') {
         requests.push(adjacencyPairsApi.getChatRoomPairs(projectId, roomId));
+        requests.push(projectsApi.getReadStatus(projectId, roomId));
       } else {
         requests.push(annotationsApi.getChatRoomAnnotations(projectId, roomId));
+        requests.push(null);
       }
 
-      const [chatRoomData, messagesResponse, userData, completionData, thirdPayload] = await Promise.all(requests);
+      const [chatRoomData, messagesResponse, userData, completionData, thirdPayload, readStatusFromServer] = await Promise.all(requests);
       setChatRoomName(chatRoomData?.name || '');
       const messagesData = messagesResponse.messages || [];
       setMessages(messagesData);
@@ -194,6 +196,11 @@ const AnnotatorChatRoomPage = () => {
         setThreadDetails({});
         setThreadColors({});
         setStatistics(prev => ({ ...prev, totalMessages: messagesResponse.total ?? messagesData.length }));
+        // Initialize read status from backend; fall back to localStorage
+        if (readStatusFromServer && Object.keys(readStatusFromServer).length > 0) {
+          setReadStatus(readStatusFromServer);
+        }
+        // If backend is empty and room is completed, mark all as read (handled by existing useEffect)
       } else {
         processAnnotations(thirdPayload);
         calculateStatistics(messagesData, thirdPayload);
@@ -487,9 +494,20 @@ const AnnotatorChatRoomPage = () => {
     }
   };
 
+  const syncReadStatusToBackend = useCallback((statusMap) => {
+    if (annotationMode !== 'adjacency_pairs') return;
+    projectsApi.updateReadStatus(projectId, roomId, statusMap).catch(err => {
+      console.error('Failed to sync read status to backend:', err);
+    });
+  }, [annotationMode, projectId, roomId]);
+
   const handleReadToggle = useCallback((messageId) => {
-    setReadStatus(prev => ({ ...prev, [messageId]: !prev[messageId] }));
-  }, []);
+    setReadStatus(prev => {
+      const next = { ...prev, [messageId]: !prev[messageId] };
+      syncReadStatusToBackend(next);
+      return next;
+    });
+  }, [syncReadStatusToBackend]);
 
   const handleMarkAllAsRead = () => {
     if (messages.length === 0) return;
@@ -500,8 +518,9 @@ const AnnotatorChatRoomPage = () => {
     const nextStatus = {};
     messages.forEach(msg => { nextStatus[msg.id] = confirmMarkAll.nextValue; });
     setReadStatus(nextStatus);
+    syncReadStatusToBackend(nextStatus);
     setConfirmMarkAll({ open: false, nextValue: false });
-  }, [messages, confirmMarkAll.nextValue]);
+  }, [messages, confirmMarkAll.nextValue, syncReadStatusToBackend]);
 
   // ── Derived state for adjacency canvas ───────────────────────────────────────
   const { linesWithLanes, relationsWidth, laneGap } = useMemo(

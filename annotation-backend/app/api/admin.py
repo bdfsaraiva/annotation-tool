@@ -425,6 +425,19 @@ async def get_adjacency_pairs_status(
     """Get adjacency pairs status for a chat room (admin only)."""
     return crud.get_adjacency_pairs_status(db, chat_room_id)
 
+
+@router.get(
+    "/chat-rooms/{chat_room_id}/read-status-summary",
+    response_model=schemas.RoomReadStatusSummary
+)
+async def get_read_status_summary(
+    chat_room_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+):
+    """Get per-turn read status for all annotators in a chat room (admin only)."""
+    return crud.get_read_status_summary_for_room(db, chat_room_id)
+
 # --- Remove or comment out old endpoints --- 
 
 # @router.post("/projects/{project_id}/chat-rooms", response_model=schemas.ChatRoom)
