@@ -31,7 +31,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = config.get_main_option("sqlalchemy.url")
+    url = settings.SQLALCHEMY_DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -45,18 +45,15 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    # Create SQLite engine (use regular engine for migrations)
-    engine = create_engine(
-        config.get_main_option("sqlalchemy.url"),
-        echo=True,
-        connect_args={"check_same_thread": False} if "sqlite" in config.get_main_option("sqlalchemy.url") else {}
-    )
+    db_url = settings.SQLALCHEMY_DATABASE_URL
+    connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
+    engine = create_engine(db_url, echo=True, connect_args=connect_args)
 
     with engine.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=True  # Enable batch mode for SQLite
+            render_as_batch=db_url.startswith("sqlite"),
         )
 
         with context.begin_transaction():
