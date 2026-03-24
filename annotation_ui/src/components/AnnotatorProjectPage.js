@@ -11,13 +11,13 @@ const AnnotatorProjectPage = () => {
     const [chatRooms, setChatRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [importMessage, setImportMessage] = useState(null);
     const [importError, setImportError] = useState(null);
     const [importRoom, setImportRoom] = useState(null);
     const [importFile, setImportFile] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [showImportChoiceModal, setShowImportChoiceModal] = useState(false);
+    const [importResult, setImportResult] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -50,7 +50,7 @@ const AnnotatorProjectPage = () => {
         setIsImporting(true);
         try {
             const result = await adjacencyPairs.importAdjacencyPairs(projectId, importRoom.id, importFile, mode);
-            setImportMessage(result?.message || 'Import completed');
+            setImportResult(result);
         } catch (err) {
             setImportError(err.response?.data?.detail || err.message || 'Failed to import annotations');
         } finally {
@@ -107,9 +107,6 @@ const AnnotatorProjectPage = () => {
             </header>
             
             <h3>Available Chat Rooms for Annotation</h3>
-            {importMessage && (
-                <div className="import-message">{importMessage}</div>
-            )}
             {importError && (
                 <div className="import-error">{importError}</div>
             )}
@@ -213,6 +210,30 @@ const AnnotatorProjectPage = () => {
                         </button>
                     </div>
                 </div>
+            </Modal>
+            <Modal
+                isOpen={!!importResult}
+                onClose={() => setImportResult(null)}
+                title="Import complete"
+                size="small"
+            >
+                {importResult && (
+                    <div className="import-result-modal">
+                        <p><strong>{importResult.imported_count}</strong> relation{importResult.imported_count !== 1 ? 's' : ''} imported.</p>
+                        <p><strong>{importResult.skipped_count}</strong> line{importResult.skipped_count !== 1 ? 's' : ''} skipped.</p>
+                        {importResult.errors && importResult.errors.length > 0 && (
+                            <div className="import-result-errors">
+                                <p className="import-result-errors-title">Skipped lines:</p>
+                                <ul>
+                                    {importResult.errors.map((msg, i) => (
+                                        <li key={i}>{msg}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        <button className="action-button" onClick={() => setImportResult(null)}>OK</button>
+                    </div>
+                )}
             </Modal>
         </div>
     );

@@ -226,6 +226,7 @@ def import_adjacency_pairs(
     skipped_count = 0
     errors = []
     now = datetime.utcnow()
+    seen_pairs: set[tuple[int, int]] = set()
 
     reader = csv.reader(io.StringIO(text))
     parsed_rows = 0
@@ -264,6 +265,13 @@ def import_adjacency_pairs(
             errors.append(f"Line {line_number}: cannot link a turn to itself")
             skipped_count += 1
             continue
+
+        pair_key = (from_message.id, to_message.id)
+        if pair_key in seen_pairs:
+            errors.append(f"Line {line_number}: duplicate pair in file, skipped")
+            skipped_count += 1
+            continue
+        seen_pairs.add(pair_key)
 
         existing = db.query(AdjacencyPair).filter(
             AdjacencyPair.from_message_id == from_message.id,
