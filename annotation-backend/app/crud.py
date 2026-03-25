@@ -11,6 +11,7 @@ Functions are grouped by domain:
 - Export — full chat-room data dump.
 """
 from sqlalchemy.orm import Session, Query
+from sqlalchemy import func
 from typing import List, Optional, Tuple
 from . import models, schemas
 from fastapi import HTTPException
@@ -1556,11 +1557,15 @@ def get_chat_room_iaa_analysis(
     # An annotator is "completed" if they annotated every message in the room
     completed_annotators = []
     pending_annotators = []
+    pending_turns_count = 0
     for user in assigned_users:
-        if user.id in annotator_data and len(annotator_data[user.id]["annotations"]) == message_count:
+        annotated = len(annotator_data.get(user.id, {}).get("annotations", {}))
+        if annotated == message_count and user.id in annotator_data:
             completed_annotators.append(schemas.AnnotatorInfo(id=user.id, username=user.username))
         else:
-            pending_annotators.append(schemas.AnnotatorInfo(id=user.id, username=user.username))
+            turns_left = message_count - annotated
+            pending_turns_count += turns_left
+            pending_annotators.append(schemas.AnnotatorInfo(id=user.id, username=user.username, pending_turns=turns_left))
 
     completed_count = len(completed_annotators)
 
@@ -1574,6 +1579,7 @@ def get_chat_room_iaa_analysis(
             total_annotators_assigned=total_assigned,
             completed_annotators=completed_annotators,
             pending_annotators=pending_annotators,
+            pending_turns_count=pending_turns_count,
             pairwise_accuracies=[],
         )
 
@@ -1612,6 +1618,7 @@ def get_chat_room_iaa_analysis(
         total_annotators_assigned=total_assigned,
         completed_annotators=completed_annotators,
         pending_annotators=pending_annotators,
+        pending_turns_count=pending_turns_count,
         pairwise_accuracies=pairwise_accuracies,
     )
 
@@ -1666,12 +1673,43 @@ def _get_adj_pairs_iaa(
         for uid in completed_user_ids
         if uid in assigned_user_map
     ]
+    completed_count = len(completed_annotators)
+
+    # Count (anotador × turno) ainda por ler entre os anotadores pendentes
+    pending_user_ids = {u.id for u in assigned_users if u.id not in completed_user_ids}
+    if pending_user_ids:
+        room_message_ids_subq = db.query(models.ChatMessage.id).filter(
+            models.ChatMessage.chat_room_id == chat_room_id
+        )
+        read_per_user = dict(
+            db.query(
+                models.MessageReadStatus.annotator_id,
+                func.count(models.MessageReadStatus.id),
+            )
+            .filter(
+                models.MessageReadStatus.message_id.in_(room_message_ids_subq),
+                models.MessageReadStatus.annotator_id.in_(pending_user_ids),
+                models.MessageReadStatus.is_read == True,
+            )
+            .group_by(models.MessageReadStatus.annotator_id)
+            .all()
+        )
+        pending_turns_count = sum(
+            message_count - read_per_user.get(uid, 0) for uid in pending_user_ids
+        )
+    else:
+        read_per_user = {}
+        pending_turns_count = 0
+
     pending_annotators = [
-        schemas.AnnotatorInfo(id=u.id, username=u.username)
+        schemas.AnnotatorInfo(
+            id=u.id,
+            username=u.username,
+            pending_turns=message_count - read_per_user.get(u.id, 0),
+        )
         for u in assigned_users
         if u.id not in completed_user_ids
     ]
-    completed_count = len(completed_annotators)
 
     not_enough = schemas.ChatRoomIAA(
         chat_room_id=chat_room_id,
@@ -1682,6 +1720,7 @@ def _get_adj_pairs_iaa(
         total_annotators_assigned=total_assigned,
         completed_annotators=completed_annotators,
         pending_annotators=pending_annotators,
+        pending_turns_count=pending_turns_count,
         iaa_alpha=alpha,
         pairwise_adj_iaa=[],
     )
@@ -1747,6 +1786,7 @@ def _get_adj_pairs_iaa(
         total_annotators_assigned=total_assigned,
         completed_annotators=completed_annotators,
         pending_annotators=pending_annotators,
+        pending_turns_count=pending_turns_count,
         iaa_alpha=alpha,
         pairwise_adj_iaa=pairwise_adj_iaa,
     )

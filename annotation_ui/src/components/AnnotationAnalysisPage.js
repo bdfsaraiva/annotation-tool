@@ -215,19 +215,45 @@ const AnnotationAnalysisPage = () => {
                 </div>
             </header>
 
+            {/* Warning de anotação em andamento */}
+            {iaaData.pending_annotators.length > 0 && (
+                <div className="warning-banner">
+                    <div className="warning-content">
+                        <h2>⚠ Análise em andamento</h2>
+                        <p>
+                            {iaaData.pending_annotators.length === 1
+                                ? '1 anotador ainda não concluiu'
+                                : `${iaaData.pending_annotators.length} anotadores ainda não concluíram`}{' '}
+                            a anotação desta sala.
+                        </p>
+                        <ul className="warning-annotator-list">
+                            {iaaData.pending_annotators.map(a => (
+                                <li key={a.id}>
+                                    <strong>{a.username}</strong>
+                                    {' — '}
+                                    {a.pending_turns === 1
+                                        ? '1 turno por ler'
+                                        : `${a.pending_turns} turnos por ler`}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            )}
+
             {/* Status Banner */}
             <div className={`status-banner ${statusInfo.class}`}>
                 <div className="status-content">
                     <h2>{statusInfo.title}</h2>
                     <p>{statusInfo.description}</p>
-                    {iaaData.analysis_status === 'Partial' && (
+                    {(iaaData.analysis_status === 'Partial' || iaaData.analysis_status === 'NotEnoughData') && (
                         <div className="annotator-status">
                             <div className="annotator-group">
-                                <strong>Completed ({iaaData.completed_annotators.length}):</strong>
+                                <strong>Concluídos ({iaaData.completed_annotators.length}):</strong>
                                 <ul>{iaaData.completed_annotators.map(a => <li key={a.id}>{a.username}</li>)}</ul>
                             </div>
                             <div className="annotator-group">
-                                <strong>Pending ({iaaData.pending_annotators.length}):</strong>
+                                <strong>Pendentes ({iaaData.pending_annotators.length}):</strong>
                                 <ul>{iaaData.pending_annotators.map(a => <li key={a.id}>{a.username}</li>)}</ul>
                             </div>
                         </div>

@@ -61,6 +61,39 @@
     font-weight: 500;
 }
 
+/* Warning Banner — anotação em andamento */
+.warning-banner {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: var(--border-radius);
+    border: 2px solid #fd7e14;
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.warning-content h2 {
+    margin: 0 0 0.4rem 0;
+    font-size: 1.15rem;
+    color: #664d03;
+}
+
+.warning-content p {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+    color: #664d03;
+}
+
+.warning-annotator-list {
+    margin: 0.25rem 0 0 0;
+    padding-left: 1.25rem;
+    font-size: 0.9rem;
+    color: #664d03;
+}
+
+.warning-annotator-list li {
+    margin-bottom: 0.15rem;
+}
+
 /* Status Banner Styles */
 .status-banner {
     margin-bottom: 2rem;

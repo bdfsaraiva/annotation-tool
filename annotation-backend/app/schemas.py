@@ -523,6 +523,8 @@ class AnnotatorInfo(BaseModel):
     """Information about an annotator."""
     id: int
     username: str
+    pending_turns: int = 0
+    """Turnos ainda por ler/anotar (0 para anotadores concluídos)."""
 
 
 class ChatRoomCompletionSummary(BaseModel):
@@ -567,6 +569,9 @@ class ChatRoomIAA(BaseModel):
 
     # Disentanglement mode — one entry per annotator pair
     pairwise_accuracies: List[PairwiseAccuracy] = []
+
+    pending_turns_count: int = 0
+    """Total de (anotador × turno) ainda por ler/anotar entre os anotadores pendentes."""
 
     # Adjacency pairs mode
     iaa_alpha: Optional[float] = None
