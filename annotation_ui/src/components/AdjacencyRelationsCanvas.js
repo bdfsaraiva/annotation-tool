@@ -90,7 +90,12 @@ const AdjacencyRelationsCanvas = ({
 
         {linesWithLanes.map((line) => {
           const x = relationsWidth - 12 - line.lane * laneGap;
-          const curveOut = x - 34;
+          // Curvatura proporcional ao span: ligações próximas ficam quase retas,
+          // ligações longas curvam progressivamente. Cap em 80% de x para não
+          // sair fora do SVG.
+          const span = Math.abs(line.toY - line.fromY);
+          const curveDepth = Math.min(x - 4, span * 0.35);
+          const curveOut = x - curveDepth;
           const isSelected = selectedRelationId === line.id;
           const isFocused = shouldFocusRelations && hoveredRelationIds.has(line.id);
           const showLabel = isFocused || isSelected;
