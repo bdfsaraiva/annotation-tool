@@ -348,7 +348,7 @@ def get_chat_messages(
         ChatMessage.chat_room_id == room_id
     )
     total = base_query.count()
-    messages = base_query.order_by(ChatMessage.created_at).offset(skip).limit(limit).all()
+    messages = base_query.order_by(ChatMessage.id).offset(skip).limit(limit).all()
     
     return MessageList(messages=messages, total=total)
 
