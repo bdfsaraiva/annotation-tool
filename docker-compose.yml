@@ -13,8 +13,6 @@ services:
 
   backend:
     build: ./annotation-backend
-    ports:
-      - "8000:8000"
     env_file:
       - .env
     environment:
@@ -28,10 +26,7 @@ services:
     restart: always
 
   frontend:
-    build:
-      context: ./annotation_ui
-      args:
-        - API_URL=${API_URL}
+    build: ./annotation_ui
     ports:
       - "3721:3721"
     depends_on:
