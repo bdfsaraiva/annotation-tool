@@ -28,7 +28,7 @@ services:
   frontend:
     build: ./annotation_ui
     ports:
-      - "3721:3721"
+      - "80:3721"
     depends_on:
       - backend
     restart: always
