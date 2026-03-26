@@ -287,8 +287,11 @@ const AnnotatorChatRoomPage = () => {
         setThreadDetails({});
         setThreadColors({});
         setStatistics(prev => ({ ...prev, totalMessages: messagesResponse.total ?? messagesData.length }));
-        // Initialize read status from backend; fall back to localStorage
+        // Initialize read status from backend; persist to localStorage so the
+        // read-status useEffect does not overwrite it with empty local data.
         if (readStatusFromServer && Object.keys(readStatusFromServer).length > 0) {
+          const storageKey = `adjpairs-read:${projectId}:${roomId}:${userData.id}`;
+          window.localStorage.setItem(storageKey, JSON.stringify(readStatusFromServer));
           setReadStatus(readStatusFromServer);
         }
         // If backend is empty and room is completed, mark all as read (handled by existing useEffect)
