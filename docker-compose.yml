@@ -1,4 +1,16 @@
 services:
+  db:
+    image: postgres:15
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${exa}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
   backend:
     build: ./annotation-backend
     ports:
@@ -11,18 +23,20 @@ services:
       - FIRST_ADMIN_USERNAME=${FIRST_ADMIN_USERNAME}
       - FIRST_ADMIN_PASSWORD=${FIRST_ADMIN_PASSWORD}
       - CORS_ORIGINS=${CORS_ORIGINS}
-    volumes:
-      - ./annotation-backend:/app
-      - ./data:/app/data
+    depends_on:
+      - db
+    restart: always
 
   frontend:
-    build: ./annotation_ui
+    build:
+      context: ./annotation_ui
+      args:
+        - API_URL=${API_URL}
     ports:
       - "3721:3721"
-    environment:
-      - API_URL=${API_URL}
     depends_on:
       - backend
+    restart: always
 
 volumes:
-  backend_data: 
+  postgres_data:
