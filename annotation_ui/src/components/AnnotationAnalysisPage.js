@@ -135,7 +135,7 @@ const AnnotationAnalysisPage = () => {
         const statusMap = {
             Complete:      { class: 'status-complete',     title: 'Analysis Complete',     description: 'All assigned annotators have completed their work' },
             Partial:       { class: 'status-partial',      title: 'Partial Analysis',      description: 'Some annotators have completed their work, analysis based on completed subset' },
-            InProgress:    { class: 'status-partial',      title: 'Provisional Analysis',  description: 'No annotator has formally completed this room yet — matrix calculated from annotations so far' },
+            InProgress:    { class: 'status-partial',      title: 'Provisional Analysis',  description: 'Fewer than 2 annotators have formally completed this room — matrix calculated from current annotations' },
             NotEnoughData: { class: 'status-insufficient', title: 'Insufficient Data',     description: 'Not enough completed annotations for analysis (need at least 2 annotators)' },
             Error:         { class: 'status-error',        title: 'Analysis Error',        description: 'An error occurred while calculating the analysis' },
         };
@@ -228,16 +228,16 @@ const AnnotationAnalysisPage = () => {
                 </div>
             </header>
 
-            {/* Warning de anotação em andamento */}
+            {/* Warning banner — annotation still in progress */}
             {iaaData.pending_annotators.length > 0 && (
                 <div className="warning-banner">
                     <div className="warning-content">
-                        <h2>⚠ Análise em andamento</h2>
+                        <h2>⚠ Analysis in progress</h2>
                         <p>
                             {iaaData.pending_annotators.length === 1
-                                ? '1 anotador ainda não concluiu'
-                                : `${iaaData.pending_annotators.length} anotadores ainda não concluíram`}{' '}
-                            a anotação desta sala.
+                                ? '1 annotator has not yet completed'
+                                : `${iaaData.pending_annotators.length} annotators have not yet completed`}{' '}
+                            annotation for this room.
                         </p>
                         <ul className="warning-annotator-list">
                             {iaaData.pending_annotators.map(a => (
@@ -245,8 +245,8 @@ const AnnotationAnalysisPage = () => {
                                     <strong>{a.username}</strong>
                                     {' — '}
                                     {a.pending_turns === 1
-                                        ? '1 turno por ler'
-                                        : `${a.pending_turns} turnos por ler`}
+                                        ? '1 turn unread'
+                                        : `${a.pending_turns} turns unread`}
                                 </li>
                             ))}
                         </ul>
@@ -262,11 +262,11 @@ const AnnotationAnalysisPage = () => {
                     {['Partial', 'InProgress', 'NotEnoughData'].includes(iaaData.analysis_status) && (
                         <div className="annotator-status">
                             <div className="annotator-group">
-                                <strong>Concluídos ({iaaData.completed_annotators.length}):</strong>
+                                <strong>Completed ({iaaData.completed_annotators.length}):</strong>
                                 <ul>{iaaData.completed_annotators.map(a => <li key={a.id}>{a.username}</li>)}</ul>
                             </div>
                             <div className="annotator-group">
-                                <strong>Pendentes ({iaaData.pending_annotators.length}):</strong>
+                                <strong>Pending ({iaaData.pending_annotators.length}):</strong>
                                 <ul>{iaaData.pending_annotators.map(a => <li key={a.id}>{a.username}</li>)}</ul>
                             </div>
                         </div>

@@ -1726,7 +1726,8 @@ def _get_adj_pairs_iaa(
     )
 
     if completed_count < 2:
-        # Calcular matriz provisional se >= 2 anotadores já leram pelo menos 1 turno
+        # Compute provisional matrix if >= 2 assigned annotators have any activity:
+        # either read turns or created adjacency pairs (these are independent features).
         room_msg_subq = db.query(models.ChatMessage.id).filter(
             models.ChatMessage.chat_room_id == chat_room_id
         )
@@ -1742,10 +1743,22 @@ def _get_adj_pairs_iaa(
             .distinct()
             .all()
         }
-        if len(annotators_with_reads) < 2:
+        annotators_with_pairs = {
+            row.annotator_id
+            for row in db.query(models.AdjacencyPair.annotator_id)
+            .join(models.ChatMessage, models.AdjacencyPair.from_message_id == models.ChatMessage.id)
+            .filter(
+                models.ChatMessage.chat_room_id == chat_room_id,
+                models.AdjacencyPair.annotator_id.in_(assigned_ids),
+            )
+            .distinct()
+            .all()
+        }
+        annotators_provisional = annotators_with_reads | annotators_with_pairs
+        if len(annotators_provisional) < 2:
             return not_enough
 
-        # Usar os pares actuais de todos os anotadores com leituras para a matriz provisional
+        # Use all current pairs from provisional annotators for the matrix.
         provisional_pairs_query = (
             db.query(
                 models.AdjacencyPair.annotator_id,
@@ -1758,7 +1771,7 @@ def _get_adj_pairs_iaa(
             .join(models.User, models.AdjacencyPair.annotator_id == models.User.id)
             .filter(
                 models.ChatMessage.chat_room_id == chat_room_id,
-                models.AdjacencyPair.annotator_id.in_(annotators_with_reads),
+                models.AdjacencyPair.annotator_id.in_(annotators_provisional),
             )
             .all()
         )
@@ -1767,12 +1780,12 @@ def _get_adj_pairs_iaa(
         for ann_id, username, from_id, to_id, rel_type in provisional_pairs_query:
             prov_pairs.setdefault(ann_id, []).append((from_id, to_id, rel_type))
             prov_usernames[ann_id] = username
-        for uid in annotators_with_reads:
+        for uid in annotators_provisional:
             prov_pairs.setdefault(uid, [])
             prov_usernames.setdefault(uid, assigned_user_map.get(uid, str(uid)))
 
         pairwise_adj_iaa = []
-        for id1, id2 in combinations(list(annotators_with_reads), 2):
+        for id1, id2 in combinations(list(annotators_provisional), 2):
             result = _calculate_adj_pairs_iaa(prov_pairs[id1], prov_pairs[id2], alpha)
             pairwise_adj_iaa.append(schemas.PairwiseAdjIAA(
                 annotator_1_id=id1,
