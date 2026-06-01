@@ -1084,4 +1084,89 @@ export const adjacencyPairs = {
     },
 };
 
-export default api; 
+/**
+ * Question-analysis annotation endpoint wrappers.
+ *
+ * Each (message, annotator) pair has a single row with fields: ``label``
+ * (free-form turn-grouping label), ``trigger_marker``, ``borderline``, and
+ * ``multiform`` (all booleans). POST is upsert.
+ * @namespace questionAnalysis
+ */
+export const questionAnalysis = {
+    /**
+     * List question-analysis annotations for a chat room.
+     * Annotators see their own; admins see all.
+     */
+    getChatRoomAnnotations: async (projectId, chatRoomId) => {
+        const response = await api.get(`/projects/${projectId}/chat-rooms/${chatRoomId}/question-analysis/`);
+        return response.data;
+    },
+
+    /**
+     * Upsert a question-analysis annotation for the current annotator.
+     * @param {Object} payload - `{message_id, label, trigger_marker, borderline, multiform}`.
+     */
+    upsertAnnotation: async (projectId, chatRoomId, payload) => {
+        const response = await api.post(
+            `/projects/${projectId}/chat-rooms/${chatRoomId}/question-analysis/`,
+            payload
+        );
+        return response.data;
+    },
+
+    /**
+     * Delete a question-analysis annotation by id.
+     */
+    deleteAnnotation: async (projectId, chatRoomId, annotationId) => {
+        await api.delete(
+            `/projects/${projectId}/chat-rooms/${chatRoomId}/question-analysis/${annotationId}`
+        );
+        return true;
+    },
+
+    /**
+     * Export question-analysis annotations as CSV (or ZIP if no annotatorId).
+     */
+    exportChatRoomAnnotations: async (chatRoomId, annotatorId = null, filenameOverride = null) => {
+        try {
+            const response = await api.get(`/admin/chat-rooms/${chatRoomId}/export-question-analysis`, {
+                params: annotatorId ? { annotator_id: annotatorId } : {},
+                responseType: 'blob',
+            });
+
+            const blob = new Blob([response.data]);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = filenameOverride || `chat_room_${chatRoomId}_question_analysis.csv`;
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            return true;
+        } catch (error) {
+            console.error('Question-analysis export error:', error);
+            if (!error.response) {
+                throw new Error('Network error or server is not responding.');
+            }
+            throw new Error(
+                error.response.data?.message ||
+                error.response.data?.detail ||
+                'Failed to export question-analysis data.'
+            );
+        }
+    },
+};
+
+export default api;

@@ -34,6 +34,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom';
 import { projects as projectsApi, annotations as annotationsApi, adjacencyPairs as adjacencyPairsApi, auth } from '../utils/api';
 import MessageBubble from './MessageBubble';
+import QuestionAnalysisChatRoom from './QuestionAnalysisChatRoom';
 import SmartThreadCard from './SmartThreadCard';
 import Modal from './Modal';
 import ErrorMessage from './ErrorMessage';
@@ -258,6 +259,13 @@ const AnnotatorChatRoomPage = () => {
       setAnnotationMode(projectData.annotation_type || 'disentanglement');
       setRelationTypes(projectData.relation_types || []);
       assignRelationTypeColors(projectData.relation_types || []);
+
+      // Question-analysis projects use a dedicated standalone component that
+      // owns its own data fetch; skip the rest of this loader.
+      if (projectData.annotation_type === 'question_analysis') {
+        setLoading(false);
+        return;
+      }
 
       const requests = [
         projectsApi.getChatRoom(projectId, roomId),
@@ -794,6 +802,10 @@ const AnnotatorChatRoomPage = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   if (loading) return <div className="loading">Loading chat room...</div>;
+
+  if (annotationMode === 'question_analysis') {
+    return <QuestionAnalysisChatRoom />;
+  }
 
   return (
     <div className="annotator-chat-room">

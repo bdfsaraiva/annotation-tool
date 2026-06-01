@@ -28,6 +28,7 @@ class User(Base):
     project_assignments = relationship("ProjectAssignment", back_populates="user", cascade="all, delete-orphan")
     annotations = relationship("Annotation", back_populates="annotator", cascade="all, delete-orphan")
     adjacency_pairs = relationship("AdjacencyPair", back_populates="annotator", cascade="all, delete-orphan")
+    question_analysis_annotations = relationship("QuestionAnalysisAnnotation", back_populates="annotator", cascade="all, delete-orphan")
     chat_room_completions = relationship("ChatRoomCompletion", back_populates="annotator", cascade="all, delete-orphan")
 
 
@@ -35,8 +36,10 @@ class Project(Base):
     """
     An annotation project grouping one or more chat rooms.
 
-    ``annotation_type`` is either ``"disentanglement"`` (thread labelling) or
-    ``"adjacency_pairs"`` (linking FPP/SPP pairs).
+    ``annotation_type`` is one of ``"disentanglement"`` (thread labelling),
+    ``"adjacency_pairs"`` (linking FPP/SPP pairs), or ``"question_analysis"``
+    (per-turn label plus question-form flags: trigger_marker, borderline,
+    multiform).
 
     ``relation_types`` is a JSON list of allowed relation labels used in
     adjacency-pair projects (e.g. ``["Q-A", "Greeting"]``).
@@ -61,6 +64,7 @@ class Project(Base):
     assignments = relationship("ProjectAssignment", back_populates="project", cascade="all, delete-orphan")
     annotations = relationship("Annotation", back_populates="project", cascade="all, delete-orphan")
     adjacency_pairs = relationship("AdjacencyPair", back_populates="project", cascade="all, delete-orphan")
+    question_analysis_annotations = relationship("QuestionAnalysisAnnotation", back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectAssignment(Base):
@@ -136,6 +140,11 @@ class ChatMessage(Base):
     # Relationships
     chat_room = relationship("ChatRoom", back_populates="messages")
     annotations = relationship("Annotation", back_populates="message", cascade="all, delete-orphan")
+    question_analysis_annotations = relationship(
+        "QuestionAnalysisAnnotation",
+        back_populates="message",
+        cascade="all, delete-orphan"
+    )
     outgoing_pairs = relationship(
         "AdjacencyPair",
         back_populates="from_message",
@@ -225,6 +234,50 @@ class AdjacencyPair(Base):
         Index('ix_adjacency_pairs_to', 'to_message_id'),
         Index('ix_adjacency_pairs_project', 'project_id'),
         UniqueConstraint('from_message_id', 'to_message_id', 'annotator_id', name='uix_adjacency_pair'),
+    )
+
+
+class QuestionAnalysisAnnotation(Base):
+    """
+    A question-analysis annotation: per-turn label plus question-form flags.
+
+    Used by projects whose ``annotation_type`` is ``"question_analysis"``.
+    Each row records, for a single (message, annotator) pair:
+
+    - ``label``: a free-form turn-grouping label chosen by the annotator
+      (semantically similar to ``Annotation.thread_id`` in disentanglement mode).
+    - ``trigger_marker``: True when the turn is unambiguously question-form
+      (either carries a question mark or matches one of the no-question-mark
+      features in the project's question-form rubric).
+    - ``borderline``: True when the annotator considers the case fronteiriço.
+    - ``multiform``: True when the turn mixes multiple question-form features.
+
+    The unique constraint on ``(message_id, annotator_id)`` enforces one
+    annotation per message per annotator.
+    """
+
+    __tablename__ = "question_analysis_annotation"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message_id: Mapped[int] = mapped_column(ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False)
+    annotator_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=False)
+    trigger_marker: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
+    borderline: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
+    multiform: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    message = relationship("ChatMessage", back_populates="question_analysis_annotations")
+    annotator = relationship("User", back_populates="question_analysis_annotations")
+    project = relationship("Project", back_populates="question_analysis_annotations")
+
+    __table_args__ = (
+        Index('ix_qa_annotation_message_annotator', 'message_id', 'annotator_id'),
+        Index('ix_qa_annotation_project', 'project_id'),
+        UniqueConstraint('message_id', 'annotator_id', name='uix_qa_message_annotator'),
     )
 
 

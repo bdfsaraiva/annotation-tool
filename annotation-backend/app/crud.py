@@ -675,6 +675,107 @@ def get_all_adjacency_pairs_for_chat_room_admin(
 
 
 # ---------------------------------------------------------------------------
+# QuestionAnalysisAnnotation CRUD
+# ---------------------------------------------------------------------------
+
+def get_question_analysis_annotation(
+    db: Session, annotation_id: int
+) -> Optional[models.QuestionAnalysisAnnotation]:
+    """Retrieve a question-analysis annotation by primary key."""
+    return (
+        db.query(models.QuestionAnalysisAnnotation)
+        .filter(models.QuestionAnalysisAnnotation.id == annotation_id)
+        .first()
+    )
+
+
+def get_question_analysis_for_message_by_annotator(
+    db: Session, message_id: int, annotator_id: int
+) -> Optional[models.QuestionAnalysisAnnotation]:
+    """Return the single question-analysis annotation for a (message, annotator) pair, if any."""
+    return (
+        db.query(models.QuestionAnalysisAnnotation)
+        .filter(
+            models.QuestionAnalysisAnnotation.message_id == message_id,
+            models.QuestionAnalysisAnnotation.annotator_id == annotator_id,
+        )
+        .first()
+    )
+
+
+def get_question_analysis_for_chat_room_by_annotator(
+    db: Session, chat_room_id: int, annotator_id: int
+) -> List[Tuple[models.QuestionAnalysisAnnotation, str]]:
+    """
+    Fetch question-analysis annotations for a chat room scoped to a single annotator.
+
+    Returns a list of ``(QuestionAnalysisAnnotation, annotator_username)`` tuples.
+    """
+    return (
+        db.query(models.QuestionAnalysisAnnotation, models.User.username)
+        .join(models.ChatMessage, models.QuestionAnalysisAnnotation.message_id == models.ChatMessage.id)
+        .join(models.User, models.QuestionAnalysisAnnotation.annotator_id == models.User.id)
+        .filter(
+            models.ChatMessage.chat_room_id == chat_room_id,
+            models.QuestionAnalysisAnnotation.annotator_id == annotator_id,
+        )
+        .all()
+    )
+
+
+def get_all_question_analysis_for_chat_room_admin(
+    db: Session, chat_room_id: int
+) -> List[Tuple[models.QuestionAnalysisAnnotation, str]]:
+    """Fetch ALL question-analysis annotations for a chat room across annotators (admin)."""
+    return (
+        db.query(models.QuestionAnalysisAnnotation, models.User.username)
+        .join(models.ChatMessage, models.QuestionAnalysisAnnotation.message_id == models.ChatMessage.id)
+        .join(models.User, models.QuestionAnalysisAnnotation.annotator_id == models.User.id)
+        .filter(models.ChatMessage.chat_room_id == chat_room_id)
+        .all()
+    )
+
+
+def upsert_question_analysis_annotation(
+    db: Session,
+    message_id: int,
+    annotator_id: int,
+    project_id: int,
+    payload: schemas.QuestionAnalysisAnnotationCreate,
+) -> models.QuestionAnalysisAnnotation:
+    """
+    Create or update a question-analysis annotation for a (message, annotator) pair.
+
+    Upsert behaviour mirrors the adjacency-pairs POST handler: if a row exists,
+    its fields are updated in place; otherwise a new row is inserted.
+    """
+    existing = get_question_analysis_for_message_by_annotator(db, message_id, annotator_id)
+    if existing:
+        existing.label = payload.label
+        existing.trigger_marker = payload.trigger_marker
+        existing.borderline = payload.borderline
+        existing.multiform = payload.multiform
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    db_annotation = models.QuestionAnalysisAnnotation(
+        message_id=message_id,
+        annotator_id=annotator_id,
+        project_id=project_id,
+        label=payload.label,
+        trigger_marker=payload.trigger_marker,
+        borderline=payload.borderline,
+        multiform=payload.multiform,
+    )
+    db.add(db_annotation)
+    db.commit()
+    db.refresh(db_annotation)
+    return db_annotation
+
+
+# ---------------------------------------------------------------------------
 # ChatRoomCompletion CRUD
 # ---------------------------------------------------------------------------
 
@@ -1466,6 +1567,168 @@ def _calculate_one_to_one_accuracy(annot1: List[str], annot2: List[str]) -> floa
     return accuracy
 
 
+def _calculate_question_analysis_iaa(
+    rows_a: List[Tuple[int, str, bool, bool, bool]],
+    rows_b: List[Tuple[int, str, bool, bool, bool]],
+) -> dict:
+    """
+    Calculate the question-analysis IAA between two annotators.
+
+    Each row is ``(message_id, label, trigger_marker, borderline, multiform)``.
+    Only messages annotated by BOTH annotators contribute to the score.
+
+    Components:
+    - ``label_accuracy``: Hungarian one-to-one accuracy on the ``label`` field.
+    - ``trigger_agreement`` / ``borderline_agreement`` / ``multiform_agreement``:
+      percentage of common messages where the boolean matches.
+    - ``combined_iaa``: unweighted average of the four components above.
+
+    Returns:
+        Dict with keys ``label_accuracy``, ``trigger_agreement``,
+        ``borderline_agreement``, ``multiform_agreement``, ``combined_iaa``,
+        ``common_message_count``.  All percentage values are 0–100.
+    """
+    map_a = {row[0]: row for row in rows_a}
+    map_b = {row[0]: row for row in rows_b}
+    common_ids = sorted(set(map_a.keys()) & set(map_b.keys()))
+    n = len(common_ids)
+
+    if n == 0:
+        return {
+            "label_accuracy": 0.0,
+            "trigger_agreement": 0.0,
+            "borderline_agreement": 0.0,
+            "multiform_agreement": 0.0,
+            "combined_iaa": 0.0,
+            "common_message_count": 0,
+        }
+
+    labels_a = [map_a[mid][1] for mid in common_ids]
+    labels_b = [map_b[mid][1] for mid in common_ids]
+    label_accuracy = _calculate_one_to_one_accuracy(labels_a, labels_b)
+
+    trigger_matches = sum(1 for mid in common_ids if map_a[mid][2] == map_b[mid][2])
+    borderline_matches = sum(1 for mid in common_ids if map_a[mid][3] == map_b[mid][3])
+    multiform_matches = sum(1 for mid in common_ids if map_a[mid][4] == map_b[mid][4])
+
+    trigger_agreement = (trigger_matches / n) * 100
+    borderline_agreement = (borderline_matches / n) * 100
+    multiform_agreement = (multiform_matches / n) * 100
+
+    combined = (label_accuracy + trigger_agreement + borderline_agreement + multiform_agreement) / 4
+
+    return {
+        "label_accuracy": label_accuracy,
+        "trigger_agreement": trigger_agreement,
+        "borderline_agreement": borderline_agreement,
+        "multiform_agreement": multiform_agreement,
+        "combined_iaa": combined,
+        "common_message_count": n,
+    }
+
+
+def _get_question_analysis_iaa(
+    db: Session,
+    chat_room_id: int,
+    chat_room,
+    project,
+    assigned_users: list,
+    message_count: int,
+) -> schemas.ChatRoomIAA:
+    """
+    IAA calculation for question_analysis projects.
+
+    Completion rule matches disentanglement: an annotator is considered
+    "completed" when they have produced a question-analysis annotation for
+    every message in the room.
+    """
+    total_assigned = len(assigned_users)
+
+    rows = (
+        db.query(
+            models.QuestionAnalysisAnnotation.annotator_id,
+            models.User.username,
+            models.QuestionAnalysisAnnotation.message_id,
+            models.QuestionAnalysisAnnotation.label,
+            models.QuestionAnalysisAnnotation.trigger_marker,
+            models.QuestionAnalysisAnnotation.borderline,
+            models.QuestionAnalysisAnnotation.multiform,
+        )
+        .join(models.ChatMessage, models.QuestionAnalysisAnnotation.message_id == models.ChatMessage.id)
+        .join(models.User, models.QuestionAnalysisAnnotation.annotator_id == models.User.id)
+        .filter(models.ChatMessage.chat_room_id == chat_room_id)
+        .all()
+    )
+
+    annotator_data: dict = {}
+    for ann_id, username, msg_id, label, trigger, borderline, multiform in rows:
+        bucket = annotator_data.setdefault(ann_id, {"username": username, "annotations": {}})
+        bucket["annotations"][msg_id] = (msg_id, label, bool(trigger), bool(borderline), bool(multiform))
+
+    completed_annotators = []
+    pending_annotators = []
+    pending_turns_count = 0
+    for user in assigned_users:
+        annotated = len(annotator_data.get(user.id, {}).get("annotations", {}))
+        if annotated == message_count and user.id in annotator_data:
+            completed_annotators.append(schemas.AnnotatorInfo(id=user.id, username=user.username))
+        else:
+            turns_left = message_count - annotated
+            pending_turns_count += turns_left
+            pending_annotators.append(
+                schemas.AnnotatorInfo(id=user.id, username=user.username, pending_turns=turns_left)
+            )
+
+    completed_count = len(completed_annotators)
+
+    if completed_count < 2:
+        return schemas.ChatRoomIAA(
+            chat_room_id=chat_room_id,
+            chat_room_name=chat_room.name,
+            message_count=message_count,
+            annotation_type="question_analysis",
+            analysis_status="NotEnoughData",
+            total_annotators_assigned=total_assigned,
+            completed_annotators=completed_annotators,
+            pending_annotators=pending_annotators,
+            pending_turns_count=pending_turns_count,
+            pairwise_question_analysis_iaa=[],
+        )
+
+    analysis_status = "Complete" if completed_count == total_assigned else "Partial"
+
+    pairwise_results = []
+    for id1, id2 in combinations([a.id for a in completed_annotators], 2):
+        rows_a = list(annotator_data[id1]["annotations"].values())
+        rows_b = list(annotator_data[id2]["annotations"].values())
+        result = _calculate_question_analysis_iaa(rows_a, rows_b)
+        pairwise_results.append(schemas.PairwiseQuestionAnalysisIAA(
+            annotator_1_id=id1,
+            annotator_2_id=id2,
+            annotator_1_username=annotator_data[id1]["username"],
+            annotator_2_username=annotator_data[id2]["username"],
+            label_accuracy=result["label_accuracy"],
+            trigger_agreement=result["trigger_agreement"],
+            borderline_agreement=result["borderline_agreement"],
+            multiform_agreement=result["multiform_agreement"],
+            combined_iaa=result["combined_iaa"],
+            common_message_count=result["common_message_count"],
+        ))
+
+    return schemas.ChatRoomIAA(
+        chat_room_id=chat_room_id,
+        chat_room_name=chat_room.name,
+        message_count=message_count,
+        annotation_type="question_analysis",
+        analysis_status=analysis_status,
+        total_annotators_assigned=total_assigned,
+        completed_annotators=completed_annotators,
+        pending_annotators=pending_annotators,
+        pending_turns_count=pending_turns_count,
+        pairwise_question_analysis_iaa=pairwise_results,
+    )
+
+
 def get_chat_room_iaa_analysis(
     db: Session,
     chat_room_id: int,
@@ -1534,6 +1797,16 @@ def get_chat_room_iaa_analysis(
             assigned_users=assigned_users,
             message_count=message_count,
             alpha_override=alpha_override,
+        )
+
+    if project.annotation_type == "question_analysis":
+        return _get_question_analysis_iaa(
+            db=db,
+            chat_room_id=chat_room_id,
+            chat_room=chat_room,
+            project=project,
+            assigned_users=assigned_users,
+            message_count=message_count,
         )
 
     # ── Disentanglement mode ─────────────────────────────────────────────────
