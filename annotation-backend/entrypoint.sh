@@ -7,7 +7,8 @@ if echo "$DATABASE_URL" | grep -q "postgresql"; then
 import sys, os
 try:
     import psycopg2
-    psycopg2.connect(os.environ['DATABASE_URL'])
+    url = os.environ['DATABASE_URL'].replace('postgresql+psycopg2://', 'postgresql://')
+    psycopg2.connect(url)
     sys.exit(0)
 except Exception as e:
     print(e)
