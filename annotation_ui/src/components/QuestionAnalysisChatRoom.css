@@ -97,6 +97,18 @@
     border-left-width: 4px;
 }
 
+.qa-user-highlighted {
+    border-left: 4px solid var(--primary-color) !important;
+    background: var(--background-color-secondary);
+    transform: translateX(-2px);
+    transition: transform 0.15s ease;
+}
+
+.qa-reply-linked {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -1px;
+}
+
 .qa-message-header {
     display: flex;
     gap: 0.75rem;
@@ -109,6 +121,39 @@
 
 .qa-turn-id {
     font-weight: 600;
+    color: var(--text-color);
+}
+
+.qa-user-id {
+    cursor: pointer;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: background 0.1s, border-color 0.1s;
+    user-select: none;
+}
+
+.qa-user-id:hover,
+.qa-user-id-active {
+    background: var(--background-color-tertiary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.qa-reply-indicator {
+    cursor: default;
+    font-size: 0.75rem;
+    color: var(--text-color-secondary);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: background 0.1s;
+}
+
+.qa-reply-indicator:hover {
+    background: var(--background-color-tertiary);
+    border-color: var(--border-color);
     color: var(--text-color);
 }
 

@@ -5,11 +5,13 @@
  * input, a two-level trigger-marker section (primary check + 5 secondary
  * features), and two boolean flags (``borderline``, ``multiform``).
  *
+ * Interactive features:
+ * - Click on a user badge to highlight / toggle all turns by that speaker.
+ * - Hover over the reply indicator (↪) to highlight both the current turn and
+ *   the turn it replies to.
+ *
  * One persisted row per (message, annotator) pair; the backend upserts on POST.
  * ``trigger_marker`` is derived server-side from the breakdown fields.
- *
- * Clearing the label of an already-saved turn (via the Clear button) deletes the
- * annotation and returns the turn to the unannotated state.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -48,6 +50,10 @@ const SECONDARY_FEATURES = [
     { key: 'trigger_f6', label: 'Conventionalised formula', hint: 'e.g. "alguém sabe…", "o que acham"' },
 ];
 
+/** Extract the reply-to turn id from a message, trying multiple field names. */
+const getReplyTo = (msg) =>
+    msg.reply_to_turn || msg.reply_to || msg.reply_to_id || null;
+
 const QuestionAnalysisChatRoom = () => {
     const { projectId, roomId } = useParams();
     const navigate = useNavigate();
@@ -63,6 +69,10 @@ const QuestionAnalysisChatRoom = () => {
     const [showRubric, setShowRubric] = useState(false);
     const [isCompleted, setIsCompleted] = useState(false);
     const [isCompletionSaving, setIsCompletionSaving] = useState(false);
+
+    // Hover / highlight interaction state
+    const [highlightedUserId, setHighlightedUserId] = useState(null);
+    const [replyHoverIds, setReplyHoverIds] = useState(null); // Set<number>
 
     const [drafts, setDrafts] = useState({});
 
@@ -112,6 +122,35 @@ const QuestionAnalysisChatRoom = () => {
     }, [projectId, roomId]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    /** Map turn_id → message.id for reply-hover resolution. */
+    const turnIdToMsgId = useMemo(() => {
+        const map = {};
+        messages.forEach(m => { map[m.turn_id] = m.id; });
+        return map;
+    }, [messages]);
+
+    // -------------------------------------------------------------------------
+    // Interaction handlers
+    // -------------------------------------------------------------------------
+
+    /** Toggle persistent user highlight. Clears if same user clicked again. */
+    const handleUserClick = (userId) => {
+        setHighlightedUserId(prev => (prev === userId ? null : userId));
+    };
+
+    /** Highlight the hovered message + its reply target (if any). */
+    const handleReplyHover = (currentMsgId, replyToTurnId) => {
+        const targetId = turnIdToMsgId[replyToTurnId];
+        if (!targetId) return;
+        setReplyHoverIds(new Set([currentMsgId, targetId]));
+    };
+
+    const handleReplyHoverEnd = () => setReplyHoverIds(null);
+
+    // -------------------------------------------------------------------------
+    // Annotation handlers
+    // -------------------------------------------------------------------------
 
     const updateDraft = (messageId, patch) => {
         setDrafts(prev => ({
@@ -264,6 +303,10 @@ const QuestionAnalysisChatRoom = () => {
                 {messages.map((msg) => {
                     const draft = drafts[msg.id] || { ...EMPTY_DRAFT };
                     const saved = annotationsByMessage[msg.id];
+                    const replyTo = getReplyTo(msg);
+
+                    const isUserHighlighted = highlightedUserId === msg.user_id;
+                    const isReplyLinked = replyHoverIds ? replyHoverIds.has(msg.id) : false;
 
                     const dirty = !saved
                         || saved.label !== draft.label.trim()
@@ -276,11 +319,34 @@ const QuestionAnalysisChatRoom = () => {
                         || !!saved.borderline !== !!draft.borderline
                         || !!saved.multiform !== !!draft.multiform;
 
+                    const articleClass = [
+                        'qa-message',
+                        saved ? 'qa-message-done' : '',
+                        isUserHighlighted ? 'qa-user-highlighted' : '',
+                        isReplyLinked ? 'qa-reply-linked' : '',
+                    ].filter(Boolean).join(' ');
+
                     return (
-                        <article key={msg.id} className={`qa-message ${saved ? 'qa-message-done' : ''}`}>
+                        <article key={msg.id} className={articleClass} data-message-id={msg.id}>
                             <header className="qa-message-header">
                                 <span className="qa-turn-id">{msg.turn_id}</span>
-                                <span className="qa-user-id">{msg.user_id}</span>
+                                <span
+                                    className={`qa-user-id ${isUserHighlighted ? 'qa-user-id-active' : ''}`}
+                                    onClick={() => handleUserClick(msg.user_id)}
+                                    title="Click to highlight all turns by this user"
+                                >
+                                    {msg.user_id}
+                                </span>
+                                {replyTo && (
+                                    <span
+                                        className="qa-reply-indicator"
+                                        onMouseEnter={() => handleReplyHover(msg.id, replyTo)}
+                                        onMouseLeave={handleReplyHoverEnd}
+                                        title={`Replies to turn ${replyTo}`}
+                                    >
+                                        ↪ {replyTo}
+                                    </span>
+                                )}
                             </header>
                             <p className="qa-message-text">{msg.turn_text}</p>
 
