@@ -21,6 +21,8 @@ services:
       - FIRST_ADMIN_USERNAME=${FIRST_ADMIN_USERNAME}
       - FIRST_ADMIN_PASSWORD=${FIRST_ADMIN_PASSWORD}
       - CORS_ORIGINS=${CORS_ORIGINS}
+    volumes:
+      - backend_data:/app/data
     depends_on:
       - db
     restart: always
@@ -35,3 +37,4 @@ services:
 
 volumes:
   postgres_data:
+  backend_data:
