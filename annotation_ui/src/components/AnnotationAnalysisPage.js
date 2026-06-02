@@ -143,6 +143,7 @@ const AnnotationAnalysisPage = () => {
     };
 
     const isAdjPairs = iaaData?.annotation_type === 'adjacency_pairs';
+    const isQuestionAnalysis = iaaData?.annotation_type === 'question_analysis';
 
     const calculateAverageAgreement = () => {
         if (isAdjPairs) {
@@ -151,9 +152,35 @@ const AnnotationAnalysisPage = () => {
             const sum = iaaData.pairwise_adj_iaa.reduce((acc, p) => acc + p[field], 0);
             return (sum / iaaData.pairwise_adj_iaa.length).toFixed(3);
         }
+        if (isQuestionAnalysis) {
+            if (!iaaData?.pairwise_question_analysis_iaa?.length) return null;
+            const sum = iaaData.pairwise_question_analysis_iaa.reduce((acc, p) => acc + p.combined_iaa, 0);
+            return (sum / iaaData.pairwise_question_analysis_iaa.length).toFixed(1);
+        }
         if (!iaaData?.pairwise_accuracies?.length) return null;
         const sum = iaaData.pairwise_accuracies.reduce((acc, p) => acc + p.accuracy, 0);
         return (sum / iaaData.pairwise_accuracies.length).toFixed(1);
+    };
+
+    /**
+     * Map question-analysis pairwise rows into the disentanglement-style
+     * accuracy shape consumed by IAAMatrix, using the combined IAA percentage
+     * as the single value.
+     */
+    const buildQuestionAnalysisAccuracies = () => {
+        if (!iaaData?.pairwise_question_analysis_iaa) return [];
+        return iaaData.pairwise_question_analysis_iaa.map(p => ({
+            annotator_1_id: p.annotator_1_id,
+            annotator_2_id: p.annotator_2_id,
+            annotator_1_username: p.annotator_1_username,
+            annotator_2_username: p.annotator_2_username,
+            accuracy: p.combined_iaa,
+            _label_accuracy: p.label_accuracy,
+            _trigger_agreement: p.trigger_agreement,
+            _borderline_agreement: p.borderline_agreement,
+            _multiform_agreement: p.multiform_agreement,
+            _common: p.common_message_count,
+        }));
     };
 
     // Build the accuracy list for IAAMatrix based on current viewMode
@@ -200,13 +227,22 @@ const AnnotationAnalysisPage = () => {
     const statusInfo = getStatusInfo(iaaData.analysis_status);
     const averageAgreement = calculateAverageAgreement();
     const adjPairsAccuracies = isAdjPairs ? buildAdjPairsAccuracies() : [];
-    const hasMatrix = isAdjPairs ? adjPairsAccuracies.length > 0 : iaaData.pairwise_accuracies.length > 0;
+    const questionAnalysisAccuracies = isQuestionAnalysis ? buildQuestionAnalysisAccuracies() : [];
+    const hasMatrix = isAdjPairs
+        ? adjPairsAccuracies.length > 0
+        : isQuestionAnalysis
+            ? questionAnalysisAccuracies.length > 0
+            : iaaData.pairwise_accuracies.length > 0;
 
     // No estado InProgress os completed_annotators estão vazios; derivar da lista de pares
     const matrixAnnotators = (() => {
         if (iaaData.completed_annotators.length > 0) return iaaData.completed_annotators;
         const seen = new Map();
-        const pairs = isAdjPairs ? iaaData.pairwise_adj_iaa : iaaData.pairwise_accuracies;
+        const pairs = isAdjPairs
+            ? (iaaData.pairwise_adj_iaa || [])
+            : isQuestionAnalysis
+                ? (iaaData.pairwise_question_analysis_iaa || [])
+                : iaaData.pairwise_accuracies;
         pairs.forEach(p => {
             if (!seen.has(p.annotator_1_id)) seen.set(p.annotator_1_id, { id: p.annotator_1_id, username: p.annotator_1_username });
             if (!seen.has(p.annotator_2_id)) seen.set(p.annotator_2_id, { id: p.annotator_2_id, username: p.annotator_2_username });
@@ -339,12 +375,18 @@ const AnnotationAnalysisPage = () => {
                     <div className="matrix-section-header">
                         <div>
                             <h2>
-                                {isAdjPairs ? VIEW_LABELS[viewMode] : 'One-to-One Agreement'} Matrix
+                                {isAdjPairs
+                                    ? VIEW_LABELS[viewMode]
+                                    : isQuestionAnalysis
+                                        ? 'Question-Analysis Combined IAA'
+                                        : 'One-to-One Agreement'} Matrix
                             </h2>
                             <p className="matrix-description">
                                 {isAdjPairs
                                     ? VIEW_DESCRIPTIONS[viewMode](iaaData.iaa_alpha)
-                                    : 'Pairwise agreement scores between annotators. Higher percentages indicate better agreement.'}
+                                    : isQuestionAnalysis
+                                        ? 'Unweighted mean of label one-to-one accuracy plus per-flag agreement (trigger_marker, borderline, multiform). Higher is better.'
+                                        : 'Pairwise agreement scores between annotators. Higher percentages indicate better agreement.'}
                             </p>
                         </div>
                         {isAdjPairs && (
@@ -354,7 +396,11 @@ const AnnotationAnalysisPage = () => {
                         )}
                     </div>
                     <IAAMatrix
-                        pairwiseAccuracies={isAdjPairs ? adjPairsAccuracies : iaaData.pairwise_accuracies}
+                        pairwiseAccuracies={
+                            isAdjPairs ? adjPairsAccuracies
+                            : isQuestionAnalysis ? questionAnalysisAccuracies
+                            : iaaData.pairwise_accuracies
+                        }
                         annotators={matrixAnnotators}
                         isAdjPairs={isAdjPairs}
                         viewMode={viewMode}

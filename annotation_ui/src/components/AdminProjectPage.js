@@ -26,7 +26,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { projects as projectsApi, users as usersApi, annotations as annotationsApi, adjacencyPairs as adjacencyPairsApi } from '../utils/api';
+import { projects as projectsApi, users as usersApi, annotations as annotationsApi, adjacencyPairs as adjacencyPairsApi, questionAnalysis as questionAnalysisApi } from '../utils/api';
 import ErrorMessage from './ErrorMessage';
 import Modal from './Modal';
 import ConfirmationModal from './ConfirmationModal';
@@ -134,6 +134,14 @@ const AdminProjectPage = () => {
                         averageAgreement: calculateAverageAdjIAA(iaaData.pairwise_adj_iaa),
                         canAnalyze: iaaData.total_annotators_assigned > 0,
                     };
+                } else if (projectData?.annotation_type === 'question_analysis') {
+                    analytics[room.id] = {
+                        status: iaaData.analysis_status,
+                        completedAnnotators: iaaData.completed_annotators.length,
+                        totalAnnotators: iaaData.total_annotators_assigned,
+                        averageAgreement: calculateAverageQuestionAnalysisIAA(iaaData.pairwise_question_analysis_iaa),
+                        canAnalyze: iaaData.total_annotators_assigned > 0,
+                    };
                 } else {
                     analytics[room.id] = {
                         status: iaaData.analysis_status,
@@ -172,6 +180,17 @@ const AdminProjectPage = () => {
         if (!pairwiseAdjIAA || pairwiseAdjIAA.length === 0) return null;
         const sum = pairwiseAdjIAA.reduce((acc, pair) => acc + pair.combined_iaa, 0);
         return (sum / pairwiseAdjIAA.length).toFixed(3);
+    };
+
+    /**
+     * Compute the mean combined IAA across all pairwise combinations for
+     * question-analysis projects (already expressed as 0–100).
+     * @param {Object[]} pairwiseQuestionAnalysisIAA - Each entry must have a `combined_iaa` field.
+     */
+    const calculateAverageQuestionAnalysisIAA = (pairwiseQuestionAnalysisIAA) => {
+        if (!pairwiseQuestionAnalysisIAA || pairwiseQuestionAnalysisIAA.length === 0) return null;
+        const sum = pairwiseQuestionAnalysisIAA.reduce((acc, pair) => acc + pair.combined_iaa, 0);
+        return (sum / pairwiseQuestionAnalysisIAA.length).toFixed(1);
     };
 
     useEffect(() => { fetchData(); }, [fetchData]);
@@ -361,6 +380,35 @@ const AdminProjectPage = () => {
         if (project.annotation_type === 'adjacency_pairs') {
             setExportAnnotatorId('all');
             setExportModal({ visible: true, roomId: chatRoomId, roomName: chatRoomName });
+            return;
+        }
+
+        if (project.annotation_type === 'question_analysis') {
+            const doExportQA = async () => {
+                await questionAnalysisApi.exportChatRoomJson(chatRoomId);
+                const label = analytics?.status === 'Complete' ? 'Complete'
+                    : analytics?.status === 'Partial' ? 'Partial' : 'Insufficient';
+                addToast(`Question-analysis data exported (${label}).`,
+                    analytics?.status === 'Complete' ? 'success' : 'warning');
+            };
+
+            if (analytics?.status === 'Partial') {
+                openConfirm(
+                    'Export Partial Data',
+                    `This chat room is only partially annotated (${analytics.completedAnnotators}/${analytics.totalAnnotators} annotators completed). Proceed?`,
+                    doExportQA,
+                    { type: 'warning', confirmText: 'Export Anyway' }
+                );
+            } else if (analytics?.status === 'NotEnoughData') {
+                openConfirm(
+                    'Export Insufficient Data',
+                    'This chat room has insufficient annotation data (less than 2 completed annotators). Proceed?',
+                    doExportQA,
+                    { type: 'warning', confirmText: 'Export Anyway' }
+                );
+            } else {
+                try { await doExportQA(); } catch (err) { setError(err.message || 'Failed to export question-analysis data.'); }
+            }
             return;
         }
 
@@ -555,7 +603,11 @@ const AdminProjectPage = () => {
             <div className="management-section">
                 <div className="section-header"><h2>Project Settings</h2></div>
                 <div className="settings-grid">
-                    <div><strong>Annotation Type:</strong> {project.annotation_type === 'adjacency_pairs' ? 'Adjacency Pairs' : 'Chat Disentanglement'}</div>
+                    <div><strong>Annotation Type:</strong> {
+                        project.annotation_type === 'adjacency_pairs' ? 'Adjacency Pairs'
+                        : project.annotation_type === 'question_analysis' ? 'Question Analysis'
+                        : 'Chat Disentanglement'
+                    }</div>
                 </div>
                 {project.annotation_type === 'adjacency_pairs' && (
                     <div className="relation-types-editor">
@@ -726,7 +778,7 @@ const AdminProjectPage = () => {
                     </div>
                 )}
 
-                {chatRooms.length > 0 && project.annotation_type === 'disentanglement' && (
+                {chatRooms.length > 0 && (project.annotation_type === 'disentanglement' || project.annotation_type === 'question_analysis') && (
                     <div className="status-legend">
                         <h4>Status Legend:</h4>
                         <div className="legend-items">

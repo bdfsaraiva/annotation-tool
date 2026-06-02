@@ -24,6 +24,7 @@ from .database import engine, Base, SessionLocal
 from .models import User
 from .api import auth, admin, projects, message_annotation_router, project_annotation_router
 from .api.adjacency_pairs import router as adjacency_pairs_router
+from .api.question_analysis import router as question_analysis_router
 from .auth import get_password_hash, validate_password_strength
 
 # Configure logging
@@ -125,6 +126,7 @@ app.include_router(projects.router, prefix="/projects", tags=["projects"])
 app.include_router(message_annotation_router, tags=["annotations"])
 app.include_router(project_annotation_router, tags=["annotations"])
 app.include_router(adjacency_pairs_router)
+app.include_router(question_analysis_router)
 
 
 @app.on_event("startup")

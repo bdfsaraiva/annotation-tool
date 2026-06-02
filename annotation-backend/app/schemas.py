@@ -239,6 +239,66 @@ class AdjacencyPair(AdjacencyPairBase):
 
 
 # ---------------------------------------------------------------------------
+# Question Analysis Annotation Schemas
+# ---------------------------------------------------------------------------
+
+class QuestionAnalysisAnnotationBase(BaseModel):
+    """Shared fields for question-analysis annotation payloads."""
+    message_id: int
+    label: str = Field(..., min_length=1, max_length=100)
+    """Free-form turn-grouping label chosen by the annotator."""
+    # trigger_marker is derived from breakdown fields on upsert; kept in Base for response serialisation.
+    trigger_marker: bool = False
+    trigger_primary: bool = False
+    """Primary check: the turn carries a question mark."""
+    trigger_f2: bool = False
+    """Secondary feature 2: bare interrogative fragment."""
+    trigger_f3: bool = False
+    """Secondary feature 3: turn-initial wh-word in matrix use."""
+    trigger_f4: bool = False
+    """Secondary feature 4: dedicated interrogative construction (será que…)."""
+    trigger_f5: bool = False
+    """Secondary feature 5: disjunctive choice question."""
+    trigger_f6: bool = False
+    """Secondary feature 6: conventionalised answer-soliciting formula."""
+    borderline: bool = False
+    """True when the case is fronteiriço / ambiguous."""
+    multiform: bool = False
+    """True when the turn mixes multiple question-form features."""
+
+
+class QuestionAnalysisAnnotationCreate(QuestionAnalysisAnnotationBase):
+    """Payload accepted when creating or updating a question-analysis annotation."""
+    pass
+
+
+class QuestionAnalysisAnnotationUpdate(BaseModel):
+    """Partial payload for updating an existing question-analysis annotation."""
+    label: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    trigger_primary: Optional[bool] = None
+    trigger_f2: Optional[bool] = None
+    trigger_f3: Optional[bool] = None
+    trigger_f4: Optional[bool] = None
+    trigger_f5: Optional[bool] = None
+    trigger_f6: Optional[bool] = None
+    borderline: Optional[bool] = None
+    multiform: Optional[bool] = None
+
+
+class QuestionAnalysisAnnotation(QuestionAnalysisAnnotationBase):
+    """Full question-analysis annotation representation returned by the API."""
+    id: int
+    annotator_id: int
+    annotator_username: str
+    project_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ---------------------------------------------------------------------------
 # Message Read Status Schemas
 # ---------------------------------------------------------------------------
 
@@ -519,6 +579,26 @@ class PairwiseAdjIAA(BaseModel):
     """The α weighting used in this calculation."""
 
 
+class PairwiseQuestionAnalysisIAA(BaseModel):
+    """Pairwise IAA result for a question-analysis project between two annotators."""
+    annotator_1_id: int
+    annotator_2_id: int
+    annotator_1_username: str
+    annotator_2_username: str
+    label_accuracy: float
+    """Hungarian one-to-one accuracy (0–100) on the ``label`` field, like disentanglement."""
+    trigger_agreement: float
+    """Simple agreement (0–100) on the ``trigger_marker`` boolean."""
+    borderline_agreement: float
+    """Simple agreement (0–100) on the ``borderline`` boolean."""
+    multiform_agreement: float
+    """Simple agreement (0–100) on the ``multiform`` boolean."""
+    combined_iaa: float
+    """Unweighted average of the four metrics above (0–100)."""
+    common_message_count: int
+    """Number of messages both annotators annotated, used as the denominator."""
+
+
 class AnnotatorInfo(BaseModel):
     """Information about an annotator."""
     id: int
@@ -556,7 +636,7 @@ class ChatRoomIAA(BaseModel):
     chat_room_id: int
     chat_room_name: str
     message_count: int
-    annotation_type: str  # "disentanglement" or "adjacency_pairs"
+    annotation_type: str  # "disentanglement", "adjacency_pairs", or "question_analysis"
 
     # "Complete" = all assigned annotators are done,
     # "Partial"  = some are done,
@@ -577,3 +657,6 @@ class ChatRoomIAA(BaseModel):
     iaa_alpha: Optional[float] = None
     """The α value used for the combined IAA formula (adjacency_pairs only)."""
     pairwise_adj_iaa: List[PairwiseAdjIAA] = []
+
+    # Question analysis mode — one entry per annotator pair
+    pairwise_question_analysis_iaa: List[PairwiseQuestionAnalysisIAA] = []

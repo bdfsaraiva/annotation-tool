@@ -1372,3 +1372,169 @@ async def export_adjacency_pairs(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={zip_name}"}
     )
+
+
+@router.get("/chat-rooms/{chat_room_id}/export-question-analysis")
+async def export_question_analysis(
+    chat_room_id: int,
+    annotator_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+) -> Response:
+    """
+    Export question-analysis annotations as a CSV file or a ZIP of CSV files.
+
+    CSV columns (header included)::
+
+        turn_id,label,trigger_marker,borderline,multiform
+
+    **Single annotator** (``annotator_id`` supplied) — returns a single
+    ``text/csv`` file named ``{room_name}-{username}.csv``.
+
+    **All annotators** (``annotator_id`` omitted) — returns a
+    ``application/zip`` archive with one ``.csv`` file per annotator assigned
+    to the project.
+    """
+    chat_room = crud.get_chat_room(db, chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
+
+    project = crud.get_project(db, chat_room.project_id)
+    if not project or project.annotation_type != "question_analysis":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This chat room does not belong to a question-analysis project"
+        )
+
+    header = "turn_id,label,trigger_marker,borderline,multiform"
+
+    def _row(turn_id: str, annotation: models.QuestionAnalysisAnnotation) -> str:
+        return (
+            f"{turn_id},{annotation.label},"
+            f"{int(bool(annotation.trigger_marker))},"
+            f"{int(bool(annotation.borderline))},"
+            f"{int(bool(annotation.multiform))}"
+        )
+
+    safe_room_name = sanitize_filename(chat_room.name)
+
+    if annotator_id is not None:
+        user = crud.get_user(db, annotator_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Annotator not found")
+
+        rows = (
+            db.query(models.QuestionAnalysisAnnotation, models.ChatMessage.turn_id)
+            .join(models.ChatMessage, models.QuestionAnalysisAnnotation.message_id == models.ChatMessage.id)
+            .filter(models.ChatMessage.chat_room_id == chat_room_id)
+            .filter(models.QuestionAnalysisAnnotation.annotator_id == annotator_id)
+            .order_by(models.ChatMessage.id)
+            .all()
+        )
+        lines = [header] + [_row(turn_id, ann) for ann, turn_id in rows]
+        content = "\n".join(lines)
+        safe_annotator = sanitize_filename(user.username or f"user_{annotator_id}")
+        filename = f"{safe_room_name}-{safe_annotator}.csv"
+        return Response(
+            content=content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    assigned_users = (
+        db.query(models.User)
+        .join(models.ProjectAssignment, models.User.id == models.ProjectAssignment.user_id)
+        .filter(models.ProjectAssignment.project_id == chat_room.project_id)
+        .all()
+    )
+    if not assigned_users:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No annotators assigned to this project")
+
+    rows = (
+        db.query(models.QuestionAnalysisAnnotation, models.ChatMessage.turn_id)
+        .join(models.ChatMessage, models.QuestionAnalysisAnnotation.message_id == models.ChatMessage.id)
+        .filter(models.ChatMessage.chat_room_id == chat_room_id)
+        .order_by(models.QuestionAnalysisAnnotation.annotator_id, models.ChatMessage.id)
+        .all()
+    )
+
+    grouped_by_user: dict = {}
+    for annotation, turn_id in rows:
+        grouped_by_user.setdefault(annotation.annotator_id, []).append(_row(turn_id, annotation))
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for user in assigned_users:
+            safe_annotator = sanitize_filename(user.username or f"user_{user.id}")
+            fname = f"{safe_room_name}-{safe_annotator}.csv"
+            lines = [header] + grouped_by_user.get(user.id, [])
+            zf.writestr(fname, "\n".join(lines))
+
+    zip_name = f"{safe_room_name}-qa-all.zip"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={zip_name}"}
+    )
+
+
+@router.get("/chat-rooms/{chat_room_id}/export-question-analysis-json")
+async def export_question_analysis_json(
+    chat_room_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+) -> JSONResponse:
+    """
+    Export all question-analysis annotations as a downloadable JSON file.
+
+    The generated JSON follows the same envelope as the disentanglement export:
+    ``export_metadata`` (with per-annotator coverage breakdown) and
+    ``data.messages[]`` with each message's full annotation list.
+
+    Each annotation entry includes the complete trigger breakdown
+    (``trigger_features`` object with human-readable keys), ``trigger_marker``
+    (derived summary), ``label``, ``borderline``, and ``multiform``.
+
+    Turns with no annotations are included with an empty ``annotations`` list
+    so the message spine is always complete.
+
+    Args:
+        chat_room_id: Primary key of the chat room to export.
+
+    Returns:
+        A ``JSONResponse`` with a ``Content-Disposition: attachment`` header.
+
+    Raises:
+        HTTPException: 404 if the chat room does not exist.
+        HTTPException: 400 if the room does not belong to a question-analysis project.
+    """
+    chat_room = crud.get_chat_room(db, chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
+
+    project = crud.get_project(db, chat_room.project_id)
+    if not project or project.annotation_type != "question_analysis":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This chat room does not belong to a question-analysis project"
+        )
+
+    export_data = crud.export_question_analysis_data(db=db, chat_room_id=chat_room_id)
+
+    metadata = export_data["export_metadata"]
+    safe_room_name = sanitize_filename(metadata["chat_room_name"])
+    completion_status = metadata["completion_status"]
+    completion_percentage = metadata["completion_percentage"]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if completion_status == "COMPLETE":
+        filename = f"qa_{chat_room_id}_{safe_room_name}_COMPLETE_{timestamp}.json"
+    elif completion_status == "PARTIAL":
+        filename = f"qa_{chat_room_id}_{safe_room_name}_PARTIAL_{completion_percentage}pct_{timestamp}.json"
+    else:
+        filename = f"qa_{chat_room_id}_{safe_room_name}_INSUFFICIENT_{timestamp}.json"
+
+    return JSONResponse(
+        content=export_data,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
