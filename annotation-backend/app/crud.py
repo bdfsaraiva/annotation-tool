@@ -749,10 +749,24 @@ def upsert_question_analysis_annotation(
     Upsert behaviour mirrors the adjacency-pairs POST handler: if a row exists,
     its fields are updated in place; otherwise a new row is inserted.
     """
+    derived_trigger = any([
+        payload.trigger_primary,
+        payload.trigger_f2,
+        payload.trigger_f3,
+        payload.trigger_f4,
+        payload.trigger_f5,
+        payload.trigger_f6,
+    ])
     existing = get_question_analysis_for_message_by_annotator(db, message_id, annotator_id)
     if existing:
         existing.label = payload.label
-        existing.trigger_marker = payload.trigger_marker
+        existing.trigger_marker = derived_trigger
+        existing.trigger_primary = payload.trigger_primary
+        existing.trigger_f2 = payload.trigger_f2
+        existing.trigger_f3 = payload.trigger_f3
+        existing.trigger_f4 = payload.trigger_f4
+        existing.trigger_f5 = payload.trigger_f5
+        existing.trigger_f6 = payload.trigger_f6
         existing.borderline = payload.borderline
         existing.multiform = payload.multiform
         existing.updated_at = datetime.utcnow()
@@ -765,7 +779,13 @@ def upsert_question_analysis_annotation(
         annotator_id=annotator_id,
         project_id=project_id,
         label=payload.label,
-        trigger_marker=payload.trigger_marker,
+        trigger_marker=derived_trigger,
+        trigger_primary=payload.trigger_primary,
+        trigger_f2=payload.trigger_f2,
+        trigger_f3=payload.trigger_f3,
+        trigger_f4=payload.trigger_f4,
+        trigger_f5=payload.trigger_f5,
+        trigger_f6=payload.trigger_f6,
         borderline=payload.borderline,
         multiform=payload.multiform,
     )

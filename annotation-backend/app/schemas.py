@@ -247,8 +247,20 @@ class QuestionAnalysisAnnotationBase(BaseModel):
     message_id: int
     label: str = Field(..., min_length=1, max_length=100)
     """Free-form turn-grouping label chosen by the annotator."""
+    # trigger_marker is derived from breakdown fields on upsert; kept in Base for response serialisation.
     trigger_marker: bool = False
-    """True if the turn is unambiguously question-form per the project rubric."""
+    trigger_primary: bool = False
+    """Primary check: the turn carries a question mark."""
+    trigger_f2: bool = False
+    """Secondary feature 2: bare interrogative fragment."""
+    trigger_f3: bool = False
+    """Secondary feature 3: turn-initial wh-word in matrix use."""
+    trigger_f4: bool = False
+    """Secondary feature 4: dedicated interrogative construction (será que…)."""
+    trigger_f5: bool = False
+    """Secondary feature 5: disjunctive choice question."""
+    trigger_f6: bool = False
+    """Secondary feature 6: conventionalised answer-soliciting formula."""
     borderline: bool = False
     """True when the case is fronteiriço / ambiguous."""
     multiform: bool = False
@@ -263,7 +275,12 @@ class QuestionAnalysisAnnotationCreate(QuestionAnalysisAnnotationBase):
 class QuestionAnalysisAnnotationUpdate(BaseModel):
     """Partial payload for updating an existing question-analysis annotation."""
     label: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    trigger_marker: Optional[bool] = None
+    trigger_primary: Optional[bool] = None
+    trigger_f2: Optional[bool] = None
+    trigger_f3: Optional[bool] = None
+    trigger_f4: Optional[bool] = None
+    trigger_f5: Optional[bool] = None
+    trigger_f6: Optional[bool] = None
     borderline: Optional[bool] = None
     multiform: Optional[bool] = None
 

@@ -2,12 +2,14 @@
  * @fileoverview Annotator interface for the ``question_analysis`` project type.
  *
  * Renders each chat turn with a compact annotation panel: a free-form ``label``
- * input plus three checkboxes (``trigger_marker``, ``borderline``, ``multiform``).
- * One persisted row per (message, annotator) pair; the backend upserts on POST.
+ * input, a two-level trigger-marker section (primary check + 5 secondary
+ * features), and two boolean flags (``borderline``, ``multiform``).
  *
- * The component owns its own data fetch and is intended to be rendered as an
- * early branch inside ``AnnotatorChatRoomPage`` when ``project.annotation_type``
- * equals ``"question_analysis"``.
+ * One persisted row per (message, annotator) pair; the backend upserts on POST.
+ * ``trigger_marker`` is derived server-side from the breakdown fields.
+ *
+ * Clearing the label of an already-saved turn (via the Clear button) deletes the
+ * annotation and returns the turn to the unannotated state.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -25,14 +27,25 @@ const parseApiError = (error) => {
     return error.message || 'An unexpected error occurred';
 };
 
-/** Short summary of the trigger-marker rubric shown in the help popover. */
-const TRIGGER_RUBRIC = [
-    'Primary check: the turn carries a question mark.',
-    'Bare interrogative fragment (e.g. "Porquê", "Como assim").',
-    'Turn-initial wh-word in matrix interrogative use (não relativo nem encaixado).',
-    'Dedicated interrogative construction (será que…, não será (que)…).',
-    'Disjunctive choice question (e.g. "Universal ou diversa").',
-    'Conventionalised answer-soliciting formula (e.g. "alguém sabe…", "o que acham").',
+const EMPTY_DRAFT = {
+    label: '',
+    trigger_primary: false,
+    trigger_f2: false,
+    trigger_f3: false,
+    trigger_f4: false,
+    trigger_f5: false,
+    trigger_f6: false,
+    borderline: false,
+    multiform: false,
+};
+
+/** Secondary features shown in the trigger breakdown (indices match f2–f6). */
+const SECONDARY_FEATURES = [
+    { key: 'trigger_f2', label: 'Bare interrogative fragment', hint: 'e.g. "Porquê", "Como assim"' },
+    { key: 'trigger_f3', label: 'Turn-initial wh-word', hint: 'Matrix use only — not relative/embedded' },
+    { key: 'trigger_f4', label: 'Dedicated interrogative construction', hint: 'será que… / não será (que)…' },
+    { key: 'trigger_f5', label: 'Disjunctive choice question', hint: 'e.g. "Universal ou diversa"' },
+    { key: 'trigger_f6', label: 'Conventionalised formula', hint: 'e.g. "alguém sabe…", "o que acham"' },
 ];
 
 const QuestionAnalysisChatRoom = () => {
@@ -43,15 +56,14 @@ const QuestionAnalysisChatRoom = () => {
     const [annotationsByMessage, setAnnotationsByMessage] = useState({});
     const [currentUser, setCurrentUser] = useState(null);
     const [chatRoomName, setChatRoomName] = useState('');
-    const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [savingMessageId, setSavingMessageId] = useState(null);
+    const [clearingMessageId, setClearingMessageId] = useState(null);
     const [showRubric, setShowRubric] = useState(false);
     const [isCompleted, setIsCompleted] = useState(false);
     const [isCompletionSaving, setIsCompletionSaving] = useState(false);
 
-    // Local draft state per message — keeps the UI responsive between saves.
     const [drafts, setDrafts] = useState({});
 
     const fetchData = useCallback(async () => {
@@ -59,15 +71,13 @@ const QuestionAnalysisChatRoom = () => {
         setLoading(true);
         setError(null);
         try {
-            const [projectData, roomData, messagesResponse, userData, qaRows, completionData] = await Promise.all([
-                projectsApi.getProject(projectId),
+            const [roomData, messagesResponse, userData, qaRows, completionData] = await Promise.all([
                 projectsApi.getChatRoom(projectId, roomId),
                 projectsApi.getChatMessages(projectId, roomId),
                 auth.getCurrentUser(),
                 qaApi.getChatRoomAnnotations(projectId, roomId),
                 projectsApi.getChatRoomCompletion(projectId, roomId),
             ]);
-            setProject(projectData);
             setChatRoomName(roomData?.name || '');
             setMessages(messagesResponse.messages || []);
             setCurrentUser(userData);
@@ -80,7 +90,12 @@ const QuestionAnalysisChatRoom = () => {
                     byMessage[row.message_id] = row;
                     initialDrafts[row.message_id] = {
                         label: row.label || '',
-                        trigger_marker: !!row.trigger_marker,
+                        trigger_primary: !!row.trigger_primary,
+                        trigger_f2: !!row.trigger_f2,
+                        trigger_f3: !!row.trigger_f3,
+                        trigger_f4: !!row.trigger_f4,
+                        trigger_f5: !!row.trigger_f5,
+                        trigger_f6: !!row.trigger_f6,
                         borderline: !!row.borderline,
                         multiform: !!row.multiform,
                     };
@@ -98,22 +113,17 @@ const QuestionAnalysisChatRoom = () => {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    /** Update the local draft for a single message without persisting yet. */
     const updateDraft = (messageId, patch) => {
         setDrafts(prev => ({
             ...prev,
             [messageId]: {
-                label: '',
-                trigger_marker: false,
-                borderline: false,
-                multiform: false,
+                ...EMPTY_DRAFT,
                 ...(prev[messageId] || {}),
                 ...patch,
             },
         }));
     };
 
-    /** Persist the current draft for a single message (upsert). */
     const saveAnnotation = async (messageId) => {
         const draft = drafts[messageId];
         if (!draft || !draft.label?.trim()) {
@@ -125,7 +135,12 @@ const QuestionAnalysisChatRoom = () => {
             const payload = {
                 message_id: messageId,
                 label: draft.label.trim(),
-                trigger_marker: !!draft.trigger_marker,
+                trigger_primary: !!draft.trigger_primary,
+                trigger_f2: !!draft.trigger_f2,
+                trigger_f3: !!draft.trigger_f3,
+                trigger_f4: !!draft.trigger_f4,
+                trigger_f5: !!draft.trigger_f5,
+                trigger_f6: !!draft.trigger_f6,
                 borderline: !!draft.borderline,
                 multiform: !!draft.multiform,
             };
@@ -136,6 +151,27 @@ const QuestionAnalysisChatRoom = () => {
             setError(parseApiError(err));
         } finally {
             setSavingMessageId(null);
+        }
+    };
+
+    /** Delete the saved annotation and reset the draft to empty. */
+    const clearAnnotation = async (messageId) => {
+        const saved = annotationsByMessage[messageId];
+        if (!saved) return;
+        setClearingMessageId(messageId);
+        try {
+            await qaApi.deleteAnnotation(projectId, roomId, saved.id);
+            setAnnotationsByMessage(prev => {
+                const next = { ...prev };
+                delete next[messageId];
+                return next;
+            });
+            setDrafts(prev => ({ ...prev, [messageId]: { ...EMPTY_DRAFT } }));
+        } catch (err) {
+            console.error('Clear error:', err);
+            setError(parseApiError(err));
+        } finally {
+            setClearingMessageId(null);
         }
     };
 
@@ -210,9 +246,13 @@ const QuestionAnalysisChatRoom = () => {
                             interrogative. Mark only forms that cannot reasonably be read as
                             non-questions.
                         </p>
-                        <ol>
-                            {TRIGGER_RUBRIC.map((line, idx) => (
-                                <li key={idx}>{line}</li>
+                        <p><strong>Primary check (1)</strong> — the turn carries a question mark.</p>
+                        <p><strong>No question mark?</strong> Mark any secondary features that apply:</p>
+                        <ol start="2">
+                            {SECONDARY_FEATURES.map((f) => (
+                                <li key={f.key}>
+                                    <strong>{f.label}</strong> — {f.hint}
+                                </li>
                             ))}
                         </ol>
                         <button onClick={() => setShowRubric(false)}>Close</button>
@@ -222,16 +262,17 @@ const QuestionAnalysisChatRoom = () => {
 
             <main className="qa-messages">
                 {messages.map((msg) => {
-                    const draft = drafts[msg.id] || {
-                        label: '',
-                        trigger_marker: false,
-                        borderline: false,
-                        multiform: false,
-                    };
+                    const draft = drafts[msg.id] || { ...EMPTY_DRAFT };
                     const saved = annotationsByMessage[msg.id];
+
                     const dirty = !saved
-                        || saved.label !== draft.label
-                        || !!saved.trigger_marker !== !!draft.trigger_marker
+                        || saved.label !== draft.label.trim()
+                        || !!saved.trigger_primary !== !!draft.trigger_primary
+                        || !!saved.trigger_f2 !== !!draft.trigger_f2
+                        || !!saved.trigger_f3 !== !!draft.trigger_f3
+                        || !!saved.trigger_f4 !== !!draft.trigger_f4
+                        || !!saved.trigger_f5 !== !!draft.trigger_f5
+                        || !!saved.trigger_f6 !== !!draft.trigger_f6
                         || !!saved.borderline !== !!draft.borderline
                         || !!saved.multiform !== !!draft.multiform;
 
@@ -254,15 +295,31 @@ const QuestionAnalysisChatRoom = () => {
                                     />
                                 </label>
 
-                                <div className="qa-flags">
-                                    <label>
+                                <div className="qa-trigger-section">
+                                    <label className="qa-trigger-primary">
                                         <input
                                             type="checkbox"
-                                            checked={!!draft.trigger_marker}
-                                            onChange={(e) => updateDraft(msg.id, { trigger_marker: e.target.checked })}
+                                            checked={!!draft.trigger_primary}
+                                            onChange={(e) => updateDraft(msg.id, { trigger_primary: e.target.checked })}
                                         />
-                                        Trigger marker
+                                        <strong>Trigger (1)</strong> — question mark present
                                     </label>
+                                    <div className="qa-trigger-secondary">
+                                        <span className="qa-secondary-label">No ? — secondary features:</span>
+                                        {SECONDARY_FEATURES.map((f) => (
+                                            <label key={f.key} title={f.hint}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!draft[f.key]}
+                                                    onChange={(e) => updateDraft(msg.id, { [f.key]: e.target.checked })}
+                                                />
+                                                {f.label}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="qa-flags">
                                     <label>
                                         <input
                                             type="checkbox"
@@ -281,14 +338,26 @@ const QuestionAnalysisChatRoom = () => {
                                     </label>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    className="qa-save"
-                                    disabled={!dirty || savingMessageId === msg.id || !draft.label?.trim()}
-                                    onClick={() => saveAnnotation(msg.id)}
-                                >
-                                    {savingMessageId === msg.id ? 'Saving…' : saved ? 'Update' : 'Save'}
-                                </button>
+                                <div className="qa-actions">
+                                    <button
+                                        type="button"
+                                        className="qa-save"
+                                        disabled={!dirty || savingMessageId === msg.id || !draft.label?.trim()}
+                                        onClick={() => saveAnnotation(msg.id)}
+                                    >
+                                        {savingMessageId === msg.id ? 'Saving…' : saved ? 'Update' : 'Save'}
+                                    </button>
+                                    {saved && (
+                                        <button
+                                            type="button"
+                                            className="qa-clear"
+                                            disabled={clearingMessageId === msg.id}
+                                            onClick={() => clearAnnotation(msg.id)}
+                                        >
+                                            {clearingMessageId === msg.id ? 'Clearing…' : 'Clear'}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </article>
                     );
