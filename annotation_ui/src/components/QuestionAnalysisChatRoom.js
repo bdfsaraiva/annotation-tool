@@ -74,6 +74,9 @@ const QuestionAnalysisChatRoom = () => {
     const [highlightedUserId, setHighlightedUserId] = useState(null);
     const [replyHoverIds, setReplyHoverIds] = useState(null); // Set<number>
 
+    // Accordion expand state — empty Set means all collapsed
+    const [expandedIds, setExpandedIds] = useState(new Set());
+
     const [drafts, setDrafts] = useState({});
 
     const fetchData = useCallback(async () => {
@@ -147,6 +150,18 @@ const QuestionAnalysisChatRoom = () => {
     };
 
     const handleReplyHoverEnd = () => setReplyHoverIds(null);
+
+    const toggleExpand = (msgId) => {
+        setExpandedIds(prev => {
+            const next = new Set(prev);
+            next.has(msgId) ? next.delete(msgId) : next.add(msgId);
+            return next;
+        });
+    };
+
+    const expandAll = () => setExpandedIds(new Set(messages.map(m => m.id)));
+    const collapseAll = () => setExpandedIds(new Set());
+    const allExpanded = messages.length > 0 && expandedIds.size === messages.length;
 
     // -------------------------------------------------------------------------
     // Annotation handlers
@@ -254,6 +269,13 @@ const QuestionAnalysisChatRoom = () => {
                     <button
                         type="button"
                         className="qa-help-btn"
+                        onClick={allExpanded ? collapseAll : expandAll}
+                    >
+                        {allExpanded ? 'Collapse all' : 'Expand all'}
+                    </button>
+                    <button
+                        type="button"
+                        className="qa-help-btn"
                         onClick={() => setShowRubric(true)}
                     >
                         Rubric
@@ -305,6 +327,7 @@ const QuestionAnalysisChatRoom = () => {
                     const saved = annotationsByMessage[msg.id];
                     const replyTo = getReplyTo(msg);
 
+                    const isExpanded = expandedIds.has(msg.id);
                     const isUserHighlighted = highlightedUserId === msg.user_id;
                     const isReplyLinked = replyHoverIds ? replyHoverIds.has(msg.id) : false;
 
@@ -324,15 +347,21 @@ const QuestionAnalysisChatRoom = () => {
                         saved ? 'qa-message-done' : '',
                         isUserHighlighted ? 'qa-user-highlighted' : '',
                         isReplyLinked ? 'qa-reply-linked' : '',
+                        !isExpanded ? 'qa-message-collapsed' : '',
                     ].filter(Boolean).join(' ');
 
                     return (
-                        <article key={msg.id} className={articleClass} data-message-id={msg.id}>
+                        <article
+                            key={msg.id}
+                            className={articleClass}
+                            data-message-id={msg.id}
+                            onClick={!isExpanded ? () => toggleExpand(msg.id) : undefined}
+                        >
                             <header className="qa-message-header">
                                 <span className="qa-turn-id">{msg.turn_id}</span>
                                 <span
                                     className={`qa-user-id ${isUserHighlighted ? 'qa-user-id-active' : ''}`}
-                                    onClick={() => handleUserClick(msg.user_id)}
+                                    onClick={(e) => { e.stopPropagation(); handleUserClick(msg.user_id); }}
                                     title="Click to highlight all turns by this user"
                                 >
                                     {msg.user_id}
@@ -347,10 +376,24 @@ const QuestionAnalysisChatRoom = () => {
                                         ↪ {replyTo}
                                     </span>
                                 )}
+                                {!isExpanded && saved && (
+                                    <span className="qa-status-chip">{saved.label}</span>
+                                )}
+                                {!isExpanded && !saved && (
+                                    <span className="qa-status-dot" />
+                                )}
+                                <button
+                                    type="button"
+                                    className="qa-toggle-btn"
+                                    onClick={(e) => { e.stopPropagation(); toggleExpand(msg.id); }}
+                                    title={isExpanded ? 'Collapse' : 'Expand'}
+                                >
+                                    {isExpanded ? '⌃' : '⌄'}
+                                </button>
                             </header>
                             <p className="qa-message-text">{msg.turn_text}</p>
 
-                            <div className="qa-controls">
+                            {isExpanded && <div className="qa-controls" onClick={(e) => e.stopPropagation()}>
                                 <label className="qa-label-field">
                                     <span>Label</span>
                                     <input
@@ -424,7 +467,7 @@ const QuestionAnalysisChatRoom = () => {
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            </div>}
                         </article>
                     );
                 })}

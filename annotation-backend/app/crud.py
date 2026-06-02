@@ -2301,3 +2301,141 @@ def export_chat_room_data(db: Session, chat_room_id: int) -> dict:
         export_data["data"]["messages"].append(message_data)
 
     return export_data
+
+
+def export_question_analysis_data(db: Session, chat_room_id: int) -> dict:
+    """
+    Export all question-analysis annotations from a chat room as a structured dict.
+
+    Each message includes an ``annotations`` list with one entry per annotator,
+    containing the full trigger breakdown (primary + f2–f6), derived
+    ``trigger_marker``, and the ``borderline`` / ``multiform`` flags.
+    Messages with no annotations are included with an empty list.
+
+    The ``completion_status`` follows the same convention as
+    :func:`export_chat_room_data`:
+    - ``"COMPLETE"``     — all assigned annotators annotated every message.
+    - ``"PARTIAL"``      — at least 2 annotators are complete but not all.
+    - ``"INSUFFICIENT"`` — fewer than 2 annotators have finished.
+
+    Args:
+        db: Active database session.
+        chat_room_id: ID of the chat room to export.
+
+    Returns:
+        A nested dict with keys ``"export_metadata"`` and ``"data"``
+        (containing a ``"messages"`` list).
+
+    Raises:
+        HTTPException: 404 if the chat room does not exist.
+    """
+    chat_room = get_chat_room(db, chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=404, detail="Chat room not found")
+
+    messages = db.query(models.ChatMessage).filter(
+        models.ChatMessage.chat_room_id == chat_room_id
+    ).order_by(models.ChatMessage.id).all()
+
+    annotations_query = (
+        db.query(models.QuestionAnalysisAnnotation, models.User.username)
+        .join(models.ChatMessage, models.QuestionAnalysisAnnotation.message_id == models.ChatMessage.id)
+        .join(models.User, models.QuestionAnalysisAnnotation.annotator_id == models.User.id)
+        .filter(models.ChatMessage.chat_room_id == chat_room_id)
+        .order_by(models.ChatMessage.id, models.QuestionAnalysisAnnotation.annotator_id)
+        .all()
+    )
+
+    annotations_by_message: dict = {}
+    annotator_counts: dict = {}
+    for ann, username in annotations_query:
+        annotations_by_message.setdefault(ann.message_id, []).append({
+            "id": ann.id,
+            "annotator_username": username,
+            "label": ann.label,
+            "trigger_marker": bool(ann.trigger_marker),
+            "trigger_features": {
+                "question_mark": bool(ann.trigger_primary),
+                "bare_interrogative_fragment": bool(ann.trigger_f2),
+                "wh_word_initial": bool(ann.trigger_f3),
+                "dedicated_interrogative_construction": bool(ann.trigger_f4),
+                "disjunctive_choice": bool(ann.trigger_f5),
+                "conventionalised_formula": bool(ann.trigger_f6),
+            },
+            "borderline": bool(ann.borderline),
+            "multiform": bool(ann.multiform),
+            "created_at": ann.created_at.isoformat(),
+            "updated_at": ann.updated_at.isoformat() if ann.updated_at else None,
+        })
+        annotator_counts.setdefault(username, set()).add(ann.message_id)
+
+    assigned_users = (
+        db.query(models.User)
+        .join(models.ProjectAssignment, models.User.id == models.ProjectAssignment.user_id)
+        .filter(models.ProjectAssignment.project_id == chat_room.project_id)
+        .all()
+    )
+
+    total_messages = len(messages)
+    total_annotators = len(assigned_users)
+    annotated_messages = len(annotations_by_message)
+
+    annotator_completion_counts: dict = {}
+    for ann, username in annotations_query:
+        annotator_completion_counts.setdefault(ann.annotator_id, set()).add(ann.message_id)
+
+    completed_annotators = sum(
+        1 for msg_set in annotator_completion_counts.values()
+        if len(msg_set) == total_messages
+    )
+    completion_percentage = (completed_annotators / total_annotators * 100) if total_annotators > 0 else 0
+
+    if completed_annotators == total_annotators and total_annotators > 0:
+        completion_status = "COMPLETE"
+    elif completed_annotators >= 2:
+        completion_status = "PARTIAL"
+    else:
+        completion_status = "INSUFFICIENT"
+
+    annotator_coverage = [
+        {
+            "annotator_username": username,
+            "annotated_count": len(msg_set),
+            "coverage_percentage": round(len(msg_set) / total_messages * 100, 1) if total_messages > 0 else 0,
+        }
+        for username, msg_set in sorted(annotator_counts.items())
+    ]
+
+    export_data = {
+        "export_metadata": {
+            "chat_room_id": chat_room.id,
+            "chat_room_name": chat_room.name,
+            "project_id": chat_room.project_id,
+            "annotation_type": "question_analysis",
+            "export_timestamp": datetime.now().isoformat(),
+            "completion_status": completion_status,
+            "completion_percentage": round(completion_percentage, 1),
+            "total_annotators": total_annotators,
+            "completed_annotators": completed_annotators,
+            "total_messages": total_messages,
+            "annotated_messages": annotated_messages,
+            "annotation_coverage": (
+                round(annotated_messages / total_messages * 100, 1) if total_messages > 0 else 0
+            ),
+            "annotator_coverage": annotator_coverage,
+        },
+        "data": {"messages": []},
+    }
+
+    for message in messages:
+        export_data["data"]["messages"].append({
+            "id": message.id,
+            "turn_id": message.turn_id,
+            "user_id": message.user_id,
+            "turn_text": message.turn_text,
+            "reply_to_turn": message.reply_to_turn,
+            "created_at": message.created_at.isoformat(),
+            "annotations": annotations_by_message.get(message.id, []),
+        })
+
+    return export_data

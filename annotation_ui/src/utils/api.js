@@ -1125,6 +1125,48 @@ export const questionAnalysis = {
     },
 
     /**
+     * Export question-analysis annotations as a structured JSON file.
+     * Follows the same envelope as the disentanglement export, with per-message
+     * annotations arrays and a full trigger_features breakdown.
+     */
+    exportChatRoomJson: async (chatRoomId) => {
+        try {
+            const response = await api.get(
+                `/admin/chat-rooms/${chatRoomId}/export-question-analysis-json`,
+                { responseType: 'blob' }
+            );
+
+            const blob = new Blob([response.data], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = `qa_export_${chatRoomId}.json`;
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (match) filename = match[1];
+            }
+
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            return true;
+        } catch (error) {
+            console.error('Question-analysis JSON export error:', error);
+            if (!error.response) throw new Error('Network error or server is not responding.');
+            throw new Error(
+                error.response.data?.message ||
+                error.response.data?.detail ||
+                'Failed to export question-analysis data.'
+            );
+        }
+    },
+
+    /**
      * Export question-analysis annotations as CSV (or ZIP if no annotatorId).
      */
     exportChatRoomAnnotations: async (chatRoomId, annotatorId = null, filenameOverride = null) => {

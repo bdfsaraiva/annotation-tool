@@ -384,11 +384,30 @@ const AdminProjectPage = () => {
         }
 
         if (project.annotation_type === 'question_analysis') {
-            try {
-                await questionAnalysisApi.exportChatRoomAnnotations(chatRoomId);
-                addToast('Question-analysis data exported successfully.', 'success');
-            } catch (err) {
-                setError(err.message || 'Failed to export question-analysis data.');
+            const doExportQA = async () => {
+                await questionAnalysisApi.exportChatRoomJson(chatRoomId);
+                const label = analytics?.status === 'Complete' ? 'Complete'
+                    : analytics?.status === 'Partial' ? 'Partial' : 'Insufficient';
+                addToast(`Question-analysis data exported (${label}).`,
+                    analytics?.status === 'Complete' ? 'success' : 'warning');
+            };
+
+            if (analytics?.status === 'Partial') {
+                openConfirm(
+                    'Export Partial Data',
+                    `This chat room is only partially annotated (${analytics.completedAnnotators}/${analytics.totalAnnotators} annotators completed). Proceed?`,
+                    doExportQA,
+                    { type: 'warning', confirmText: 'Export Anyway' }
+                );
+            } else if (analytics?.status === 'NotEnoughData') {
+                openConfirm(
+                    'Export Insufficient Data',
+                    'This chat room has insufficient annotation data (less than 2 completed annotators). Proceed?',
+                    doExportQA,
+                    { type: 'warning', confirmText: 'Export Anyway' }
+                );
+            } else {
+                try { await doExportQA(); } catch (err) { setError(err.message || 'Failed to export question-analysis data.'); }
             }
             return;
         }

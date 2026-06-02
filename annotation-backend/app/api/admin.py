@@ -1476,3 +1476,65 @@ async def export_question_analysis(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={zip_name}"}
     )
+
+
+@router.get("/chat-rooms/{chat_room_id}/export-question-analysis-json")
+async def export_question_analysis_json(
+    chat_room_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin_user)
+) -> JSONResponse:
+    """
+    Export all question-analysis annotations as a downloadable JSON file.
+
+    The generated JSON follows the same envelope as the disentanglement export:
+    ``export_metadata`` (with per-annotator coverage breakdown) and
+    ``data.messages[]`` with each message's full annotation list.
+
+    Each annotation entry includes the complete trigger breakdown
+    (``trigger_features`` object with human-readable keys), ``trigger_marker``
+    (derived summary), ``label``, ``borderline``, and ``multiform``.
+
+    Turns with no annotations are included with an empty ``annotations`` list
+    so the message spine is always complete.
+
+    Args:
+        chat_room_id: Primary key of the chat room to export.
+
+    Returns:
+        A ``JSONResponse`` with a ``Content-Disposition: attachment`` header.
+
+    Raises:
+        HTTPException: 404 if the chat room does not exist.
+        HTTPException: 400 if the room does not belong to a question-analysis project.
+    """
+    chat_room = crud.get_chat_room(db, chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
+
+    project = crud.get_project(db, chat_room.project_id)
+    if not project or project.annotation_type != "question_analysis":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This chat room does not belong to a question-analysis project"
+        )
+
+    export_data = crud.export_question_analysis_data(db=db, chat_room_id=chat_room_id)
+
+    metadata = export_data["export_metadata"]
+    safe_room_name = sanitize_filename(metadata["chat_room_name"])
+    completion_status = metadata["completion_status"]
+    completion_percentage = metadata["completion_percentage"]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if completion_status == "COMPLETE":
+        filename = f"qa_{chat_room_id}_{safe_room_name}_COMPLETE_{timestamp}.json"
+    elif completion_status == "PARTIAL":
+        filename = f"qa_{chat_room_id}_{safe_room_name}_PARTIAL_{completion_percentage}pct_{timestamp}.json"
+    else:
+        filename = f"qa_{chat_room_id}_{safe_room_name}_INSUFFICIENT_{timestamp}.json"
+
+    return JSONResponse(
+        content=export_data,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
