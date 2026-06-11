@@ -30,6 +30,7 @@ const parseApiError = (error) => {
 };
 
 const EMPTY_DRAFT = {
+    is_question: null,
     label: '',
     trigger_primary: false,
     trigger_f2: false,
@@ -102,6 +103,7 @@ const QuestionAnalysisChatRoom = () => {
                 if (row.annotator_id === userData.id) {
                     byMessage[row.message_id] = row;
                     initialDrafts[row.message_id] = {
+                        is_question: !!row.is_question,
                         label: row.label || '',
                         trigger_primary: !!row.trigger_primary,
                         trigger_f2: !!row.trigger_f2,
@@ -167,6 +169,7 @@ const QuestionAnalysisChatRoom = () => {
     // Annotation handlers
     // -------------------------------------------------------------------------
 
+    /** Update the local draft only (used for label typing; persisted on blur). */
     const updateDraft = (messageId, patch) => {
         setDrafts(prev => ({
             ...prev,
@@ -178,27 +181,26 @@ const QuestionAnalysisChatRoom = () => {
         }));
     };
 
-    const saveAnnotation = async (messageId) => {
-        const draft = drafts[messageId];
-        if (!draft || !draft.label?.trim()) {
-            setError('A label is required before saving.');
-            return;
-        }
+    /** Build the upsert payload from a draft. */
+    const draftToPayload = (messageId, draft) => ({
+        message_id: messageId,
+        is_question: !!draft.is_question,
+        label: draft.label?.trim() || '',
+        trigger_primary: !!draft.trigger_primary,
+        trigger_f2: !!draft.trigger_f2,
+        trigger_f3: !!draft.trigger_f3,
+        trigger_f4: !!draft.trigger_f4,
+        trigger_f5: !!draft.trigger_f5,
+        trigger_f6: !!draft.trigger_f6,
+        borderline: !!draft.borderline,
+        multiform: !!draft.multiform,
+    });
+
+    /** Persist a draft to the backend immediately. */
+    const persistDraft = async (messageId, draft) => {
         setSavingMessageId(messageId);
         try {
-            const payload = {
-                message_id: messageId,
-                label: draft.label.trim(),
-                trigger_primary: !!draft.trigger_primary,
-                trigger_f2: !!draft.trigger_f2,
-                trigger_f3: !!draft.trigger_f3,
-                trigger_f4: !!draft.trigger_f4,
-                trigger_f5: !!draft.trigger_f5,
-                trigger_f6: !!draft.trigger_f6,
-                borderline: !!draft.borderline,
-                multiform: !!draft.multiform,
-            };
-            const saved = await qaApi.upsertAnnotation(projectId, roomId, payload);
+            const saved = await qaApi.upsertAnnotation(projectId, roomId, draftToPayload(messageId, draft));
             setAnnotationsByMessage(prev => ({ ...prev, [messageId]: saved }));
         } catch (err) {
             console.error('Save error:', err);
@@ -206,6 +208,29 @@ const QuestionAnalysisChatRoom = () => {
         } finally {
             setSavingMessageId(null);
         }
+    };
+
+    /** Update the local draft and persist it right away (checkboxes / radio). */
+    const updateAndPersist = (messageId, patch) => {
+        const nextDraft = { ...EMPTY_DRAFT, ...(drafts[messageId] || {}), ...patch };
+        setDrafts(prev => ({ ...prev, [messageId]: nextDraft }));
+        persistDraft(messageId, nextDraft);
+    };
+
+    /** Set the primary "is question?" decision. Choosing "No" clears secondary fields. */
+    const setIsQuestion = (messageId, value) => {
+        if (value) {
+            updateAndPersist(messageId, { is_question: true });
+        } else {
+            updateAndPersist(messageId, { ...EMPTY_DRAFT, is_question: false });
+        }
+    };
+
+    /** Persist the label on blur, but only when the turn is marked as a question. */
+    const persistLabel = (messageId) => {
+        const draft = drafts[messageId];
+        if (!draft || draft.is_question !== true) return;
+        persistDraft(messageId, draft);
     };
 
     /** Delete the saved annotation and reset the draft to empty. */
@@ -303,9 +328,11 @@ const QuestionAnalysisChatRoom = () => {
                     <div className="qa-rubric">
                         <h3>Trigger marker rubric</h3>
                         <p>
-                            A turn is question-form when its surface wording is unambiguously
-                            interrogative. Mark only forms that cannot reasonably be read as
-                            non-questions.
+                            First decide <strong>Is question?</strong> for every turn. Pick
+                            <strong> No</strong> when the turn is not a question; pick
+                            <strong> Yes</strong> when its surface wording is unambiguously
+                            interrogative, then mark the features below. Every choice is saved
+                            automatically.
                         </p>
                         <p><strong>Primary check (1)</strong> — the turn carries a question mark.</p>
                         <p><strong>No question mark?</strong> Mark any secondary features that apply:</p>
@@ -330,17 +357,6 @@ const QuestionAnalysisChatRoom = () => {
                     const isExpanded = expandedIds.has(msg.id);
                     const isUserHighlighted = highlightedUserId === msg.user_id;
                     const isReplyLinked = replyHoverIds ? replyHoverIds.has(msg.id) : false;
-
-                    const dirty = !saved
-                        || saved.label !== draft.label.trim()
-                        || !!saved.trigger_primary !== !!draft.trigger_primary
-                        || !!saved.trigger_f2 !== !!draft.trigger_f2
-                        || !!saved.trigger_f3 !== !!draft.trigger_f3
-                        || !!saved.trigger_f4 !== !!draft.trigger_f4
-                        || !!saved.trigger_f5 !== !!draft.trigger_f5
-                        || !!saved.trigger_f6 !== !!draft.trigger_f6
-                        || !!saved.borderline !== !!draft.borderline
-                        || !!saved.multiform !== !!draft.multiform;
 
                     const articleClass = [
                         'qa-message',
@@ -377,7 +393,7 @@ const QuestionAnalysisChatRoom = () => {
                                     </span>
                                 )}
                                 {!isExpanded && saved && (
-                                    <span className="qa-status-chip">{saved.label}</span>
+                                    <span className="qa-status-chip">{saved.is_question ? 'Q' : '—'}</span>
                                 )}
                                 {!isExpanded && !saved && (
                                     <span className="qa-status-dot" />
@@ -394,68 +410,88 @@ const QuestionAnalysisChatRoom = () => {
                             <p className="qa-message-text">{msg.turn_text}</p>
 
                             {isExpanded && <div className="qa-controls" onClick={(e) => e.stopPropagation()}>
-                                <label className="qa-label-field">
-                                    <span>Label</span>
-                                    <input
-                                        type="text"
-                                        value={draft.label}
-                                        onChange={(e) => updateDraft(msg.id, { label: e.target.value })}
-                                        placeholder="Turn label"
-                                    />
-                                </label>
-
-                                <div className="qa-trigger-section">
-                                    <label className="qa-trigger-primary">
+                                <div className="qa-is-question">
+                                    <span className="qa-is-question-label">Is question?</span>
+                                    <label>
                                         <input
-                                            type="checkbox"
-                                            checked={!!draft.trigger_primary}
-                                            onChange={(e) => updateDraft(msg.id, { trigger_primary: e.target.checked })}
+                                            type="radio"
+                                            name={`isq-${msg.id}`}
+                                            checked={draft.is_question === true}
+                                            onChange={() => setIsQuestion(msg.id, true)}
                                         />
-                                        <strong>Trigger (1)</strong> — question mark present
+                                        Yes
                                     </label>
-                                    <div className="qa-trigger-secondary">
-                                        <span className="qa-secondary-label">No ? — secondary features:</span>
-                                        {SECONDARY_FEATURES.map((f) => (
-                                            <label key={f.key} title={f.hint}>
+                                    <label>
+                                        <input
+                                            type="radio"
+                                            name={`isq-${msg.id}`}
+                                            checked={draft.is_question === false}
+                                            onChange={() => setIsQuestion(msg.id, false)}
+                                        />
+                                        No
+                                    </label>
+                                </div>
+
+                                {draft.is_question === true && (
+                                    <>
+                                        <label className="qa-label-field">
+                                            <span>Label (optional)</span>
+                                            <input
+                                                type="text"
+                                                value={draft.label}
+                                                onChange={(e) => updateDraft(msg.id, { label: e.target.value })}
+                                                onBlur={() => persistLabel(msg.id)}
+                                                placeholder="Turn label"
+                                            />
+                                        </label>
+
+                                        <div className="qa-trigger-section">
+                                            <label className="qa-trigger-primary">
                                                 <input
                                                     type="checkbox"
-                                                    checked={!!draft[f.key]}
-                                                    onChange={(e) => updateDraft(msg.id, { [f.key]: e.target.checked })}
+                                                    checked={!!draft.trigger_primary}
+                                                    onChange={(e) => updateAndPersist(msg.id, { trigger_primary: e.target.checked })}
                                                 />
-                                                {f.label}
+                                                <strong>Trigger (1)</strong> — question mark present
                                             </label>
-                                        ))}
-                                    </div>
-                                </div>
+                                            <div className="qa-trigger-secondary">
+                                                <span className="qa-secondary-label">No ? — secondary features:</span>
+                                                {SECONDARY_FEATURES.map((f) => (
+                                                    <label key={f.key} title={f.hint}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!draft[f.key]}
+                                                            onChange={(e) => updateAndPersist(msg.id, { [f.key]: e.target.checked })}
+                                                        />
+                                                        {f.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
 
-                                <div className="qa-flags">
-                                    <label>
-                                        <input
-                                            type="checkbox"
-                                            checked={!!draft.borderline}
-                                            onChange={(e) => updateDraft(msg.id, { borderline: e.target.checked })}
-                                        />
-                                        Borderline
-                                    </label>
-                                    <label>
-                                        <input
-                                            type="checkbox"
-                                            checked={!!draft.multiform}
-                                            onChange={(e) => updateDraft(msg.id, { multiform: e.target.checked })}
-                                        />
-                                        Multiform
-                                    </label>
-                                </div>
+                                        <div className="qa-flags">
+                                            <label>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!draft.borderline}
+                                                    onChange={(e) => updateAndPersist(msg.id, { borderline: e.target.checked })}
+                                                />
+                                                Borderline
+                                            </label>
+                                            <label>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!draft.multiform}
+                                                    onChange={(e) => updateAndPersist(msg.id, { multiform: e.target.checked })}
+                                                />
+                                                Multiform
+                                            </label>
+                                        </div>
+                                    </>
+                                )}
 
                                 <div className="qa-actions">
-                                    <button
-                                        type="button"
-                                        className="qa-save"
-                                        disabled={!dirty || savingMessageId === msg.id || !draft.label?.trim()}
-                                        onClick={() => saveAnnotation(msg.id)}
-                                    >
-                                        {savingMessageId === msg.id ? 'Saving…' : saved ? 'Update' : 'Save'}
-                                    </button>
+                                    {savingMessageId === msg.id && <span className="qa-saving">Saving…</span>}
                                     {saved && (
                                         <button
                                             type="button"

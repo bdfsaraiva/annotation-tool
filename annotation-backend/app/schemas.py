@@ -245,8 +245,10 @@ class AdjacencyPair(AdjacencyPairBase):
 class QuestionAnalysisAnnotationBase(BaseModel):
     """Shared fields for question-analysis annotation payloads."""
     message_id: int
-    label: str = Field(..., min_length=1, max_length=100)
-    """Free-form turn-grouping label chosen by the annotator."""
+    is_question: bool = False
+    """Primary annotator decision: whether the turn is a question."""
+    label: Optional[str] = Field(default="", max_length=100)
+    """Free-form turn-grouping label chosen by the annotator (optional)."""
     # trigger_marker is derived from breakdown fields on upsert; kept in Base for response serialisation.
     trigger_marker: bool = False
     trigger_primary: bool = False

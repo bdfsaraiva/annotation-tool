@@ -194,6 +194,33 @@
     border-top: 1px dashed var(--border-color);
 }
 
+.qa-is-question {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.qa-is-question-label {
+    font-size: 0.85rem;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.qa-is-question label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.qa-saving {
+    font-size: 0.8rem;
+    color: var(--text-color-secondary);
+    font-style: italic;
+}
+
 .qa-label-field {
     display: flex;
     align-items: center;
@@ -291,23 +318,6 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
-}
-
-.qa-save {
-    background: var(--primary-color);
-    color: #fff;
-    border: 1px solid var(--primary-color);
-    border-radius: 6px;
-    padding: 0.4rem 0.9rem;
-    cursor: pointer;
-    font-size: 0.85rem;
-}
-
-.qa-save:disabled {
-    background: var(--background-color-tertiary);
-    color: var(--text-color-secondary);
-    border-color: var(--border-color);
-    cursor: not-allowed;
 }
 
 .qa-clear {

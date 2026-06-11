@@ -759,7 +759,8 @@ def upsert_question_analysis_annotation(
     ])
     existing = get_question_analysis_for_message_by_annotator(db, message_id, annotator_id)
     if existing:
-        existing.label = payload.label
+        existing.is_question = payload.is_question
+        existing.label = payload.label or ""
         existing.trigger_marker = derived_trigger
         existing.trigger_primary = payload.trigger_primary
         existing.trigger_f2 = payload.trigger_f2
@@ -778,7 +779,8 @@ def upsert_question_analysis_annotation(
         message_id=message_id,
         annotator_id=annotator_id,
         project_id=project_id,
-        label=payload.label,
+        is_question=payload.is_question,
+        label=payload.label or "",
         trigger_marker=derived_trigger,
         trigger_primary=payload.trigger_primary,
         trigger_f2=payload.trigger_f2,
@@ -2308,8 +2310,9 @@ def export_question_analysis_data(db: Session, chat_room_id: int) -> dict:
     Export all question-analysis annotations from a chat room as a structured dict.
 
     Each message includes an ``annotations`` list with one entry per annotator,
-    containing the full trigger breakdown (primary + f2–f6), derived
-    ``trigger_marker``, and the ``borderline`` / ``multiform`` flags.
+    containing the primary ``is_question`` decision, the full trigger breakdown
+    (primary + f2–f6), derived ``trigger_marker``, and the ``borderline`` /
+    ``multiform`` flags.
     Messages with no annotations are included with an empty list.
 
     The ``completion_status`` follows the same convention as
@@ -2352,6 +2355,7 @@ def export_question_analysis_data(db: Session, chat_room_id: int) -> dict:
         annotations_by_message.setdefault(ann.message_id, []).append({
             "id": ann.id,
             "annotator_username": username,
+            "is_question": bool(ann.is_question),
             "label": ann.label,
             "trigger_marker": bool(ann.trigger_marker),
             "trigger_features": {

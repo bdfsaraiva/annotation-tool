@@ -263,6 +263,7 @@ class QuestionAnalysisAnnotation(Base):
     annotator_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     label: Mapped[str] = mapped_column(String, nullable=False)
+    is_question: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
     trigger_marker: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
     trigger_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
     trigger_f2: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')

@@ -1087,9 +1087,10 @@ export const adjacencyPairs = {
 /**
  * Question-analysis annotation endpoint wrappers.
  *
- * Each (message, annotator) pair has a single row with fields: ``label``
- * (free-form turn-grouping label), ``trigger_marker``, ``borderline``, and
- * ``multiform`` (all booleans). POST is upsert.
+ * Each (message, annotator) pair has a single row with fields: ``is_question``
+ * (primary annotator decision), ``label`` (optional free-form turn-grouping
+ * label), ``trigger_marker``, ``borderline``, and ``multiform`` (all booleans).
+ * POST is upsert.
  * @namespace questionAnalysis
  */
 export const questionAnalysis = {
@@ -1104,7 +1105,7 @@ export const questionAnalysis = {
 
     /**
      * Upsert a question-analysis annotation for the current annotator.
-     * @param {Object} payload - `{message_id, label, trigger_marker, borderline, multiform}`.
+     * @param {Object} payload - `{message_id, is_question, label, trigger_primary, trigger_f2..f6, borderline, multiform}`.
      */
     upsertAnnotation: async (projectId, chatRoomId, payload) => {
         const response = await api.post(
