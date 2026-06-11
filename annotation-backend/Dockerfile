@@ -19,8 +19,8 @@ COPY . .
 # Create data directory for SQLite
 RUN mkdir -p /app/data
 
-# Make entrypoint script executable
-RUN chmod +x /app/entrypoint.sh
+# Normalise line endings (Windows CRLF breaks the shebang) and make it executable
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Expose the port the app runs on
 EXPOSE 8000

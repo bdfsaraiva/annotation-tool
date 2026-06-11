@@ -1,0 +1,4 @@
+# Shell scripts must use LF line endings, otherwise the Docker entrypoint
+# shebang breaks ("no such file or directory") when built from Windows checkouts.
+*.sh text eol=lf
+entrypoint.sh text eol=lf
